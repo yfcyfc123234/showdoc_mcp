@@ -174,3 +174,7 @@ showdoc_export_*.json
 
 captcha_debug/
 
+# PaddleOCR 模型文件
+.paddlex/
+core/.paddlex/
+
