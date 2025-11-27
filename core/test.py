@@ -17,12 +17,12 @@ if sys.platform == 'win32':
     if hasattr(sys.stdout, 'reconfigure'):
         try:
             sys.stdout.reconfigure(encoding='utf-8')
-        except:
+        except (AttributeError, ValueError, OSError):
             pass
     if hasattr(sys.stderr, 'reconfigure'):
         try:
             sys.stderr.reconfigure(encoding='utf-8')
-        except:
+        except (AttributeError, ValueError, OSError):
             pass
 
 # 添加父目录到路径（如果在 core 目录内运行）
