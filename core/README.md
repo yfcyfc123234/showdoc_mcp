@@ -15,11 +15,13 @@ pip install -r requirements.txt
 ```python
 from core import ShowDocClient
 
-# 初始化客户端
+# 初始化客户端（方式1：使用密码自动登录，默认密码 123456）
 base_url = "https://doc.cqfengli.com/web/#/90/"
-cookie = "think_language=zh-CN; PHPSESSID=tg7ja3au64div38p58abmomtt6"
+client = ShowDocClient(base_url, password="123456")
 
-client = ShowDocClient(base_url, cookie)
+# 或方式2：使用 Cookie
+cookie = "think_language=zh-CN; PHPSESSID=tg7ja3au64div38p58abmomtt6"
+client = ShowDocClient(base_url, cookie=cookie)
 
 # 获取所有接口数据
 api_tree = client.get_all_apis()
@@ -70,12 +72,13 @@ api_tree = client.get_all_apis("订单")
 
 ### ShowDocClient
 
-#### `__init__(base_url: str, cookie: str)`
+#### `__init__(base_url: str, cookie: Optional[str] = None, password: Optional[str] = "123456")`
 
 初始化客户端。
 
 - `base_url`: ShowDoc 文档页面 URL，例如 `"https://doc.cqfengli.com/web/#/90/"`
-- `cookie`: 认证 Cookie，例如 `"think_language=zh-CN; PHPSESSID=xxx"`
+- `cookie`: 认证 Cookie（可选），例如 `"think_language=zh-CN; PHPSESSID=xxx"`
+- `password`: 项目访问密码（可选，默认: "123456"），如果提供且 cookie 为空，将自动进行验证码登录
 
 #### `get_all_apis(node_name: Optional[str] = None) -> ApiTree`
 
@@ -114,7 +117,7 @@ api_tree = client.get_all_apis("订单")
 from core import ShowDocClient, ShowDocNotFoundError, ShowDocAuthError
 
 try:
-    client = ShowDocClient(base_url, cookie)
+    client = ShowDocClient(base_url, password="123456")
     api_tree = client.get_all_apis("订单")
 except ShowDocNotFoundError as e:
     print(f"节点不存在: {e}")
