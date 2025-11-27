@@ -171,3 +171,7 @@ tmp/
 *.snapshot
 showdoc_export_*.json
 
+# PaddleOCR 模型文件
+.paddlex/
+core/.paddlex/
+

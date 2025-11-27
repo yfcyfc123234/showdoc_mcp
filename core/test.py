@@ -147,11 +147,16 @@ def main():
     try:
         # 步骤1: 初始化客户端
         print("[步骤 1] 初始化客户端...")
-        client = ShowDocClient(BASE_URL, cookie=COOKIE, password=PASSWORD)
-        print("[OK] 成功")
-        print(f"  - 服务器地址: {client.server_base}")
-        print(f"  - 项目 ID: {client.item_id}")
-        print()
+        try:
+            client = ShowDocClient(BASE_URL, cookie=COOKIE, password=PASSWORD)
+            print("[OK] 成功")
+            print(f"  - 服务器地址: {client.server_base}")
+            print(f"  - 项目 ID: {client.item_id}")
+            print()
+        except ShowDocAuthError as e:
+            # 认证错误在初始化时发生，提供更详细的错误信息
+            print("[失败]")
+            raise  # 重新抛出，让下面的异常处理统一处理
         
         # 步骤2: 获取接口数据
         node_desc = NODE_NAME if NODE_NAME else "全部"
@@ -211,23 +216,60 @@ def main():
         return 0
         
     except ShowDocNotFoundError as e:
-        print(f"\n[ERROR] 错误: 未找到指定节点")
-        print(f"   详情: {e}")
-        print("\n提示: 请检查节点名称是否正确，或使用 None 获取全部节点")
+        print()
+        print("=" * 70)
+        print("❌ 错误: 未找到指定节点")
+        print("=" * 70)
+        print(f"\n错误详情: {e}")
+        print("\n💡 解决方案:")
+        print("  1. 检查节点名称是否正确（区分大小写）")
+        print("  2. 使用 NODE_NAME = None 获取所有可用节点")
+        print("  3. 查看上面的输出，确认正确的节点名称")
         return 1
     except ShowDocAuthError as e:
-        print(f"\n[ERROR] 错误: 认证失败")
-        print(f"   详情: {e}")
-        print("\n提示: 请检查 Cookie 或密码是否有效，尝试重新登录 ShowDoc 获取新的 Cookie，或确认密码是否正确")
+        print()
+        print("=" * 70)
+        print("❌ 错误: 认证失败")
+        print("=" * 70)
+        error_msg = str(e)
+        print(f"\n错误详情: {error_msg}")
+        
+        # 根据错误信息提供更具体的建议
+        if "密码错误" in error_msg:
+            print("\n💡 解决方案:")
+            print("  1. 检查 PASSWORD 配置是否正确")
+            print("  2. 确认项目访问密码是否已更改")
+        elif "验证码" in error_msg:
+            print("\n💡 解决方案:")
+            print("  1. 验证码识别失败，程序会自动重试")
+            print("  2. 如果持续失败，可能是验证码图片质量问题")
+            print("  3. 可以尝试使用 Cookie 认证（设置 COOKIE 参数）")
+        elif "Cookie" in error_msg or "cookie" in error_msg:
+            print("\n💡 解决方案:")
+            print("  1. 检查 COOKIE 配置是否正确")
+            print("  2. Cookie 可能已过期，请重新登录获取新 Cookie")
+            print("  3. 获取 Cookie 方法：")
+            print("     - 在浏览器中登录 ShowDoc")
+            print("     - 打开开发者工具（F12）")
+            print("     - Network 标签 → 任意请求 → Request Headers → Cookie")
+        else:
+            print("\n💡 解决方案:")
+            print("  1. 检查 Cookie 或密码是否有效")
+            print("  2. 尝试重新登录 ShowDoc 获取新的 Cookie")
+            print("  3. 确认密码是否正确")
         return 1
     except KeyboardInterrupt:
-        print("\n\n[WARN] 用户中断")
+        print("\n\n⚠️  用户中断操作")
         return 1
     except Exception as e:
-        print(f"\n[ERROR] 发生错误: {type(e).__name__}")
-        print(f"   详情: {e}")
+        print()
+        print("=" * 70)
+        print(f"❌ 发生未预期的错误: {type(e).__name__}")
+        print("=" * 70)
+        print(f"\n错误类型: {type(e).__name__}")
+        print(f"错误信息: {e}")
+        print("\n详细堆栈:")
         import traceback
-        print("\n详细错误信息:")
         traceback.print_exc()
         return 1
 

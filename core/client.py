@@ -205,47 +205,50 @@ class ShowDocClient:
             ShowDocCaptchaError: 验证码识别失败
         """
         from .parser import ERROR_CODE_PASSWORD_REQUIRED, ERROR_CODE_CAPTCHA_INCORRECT
+        from .captcha_solver import get_captcha_solver
         
-        captcha_solver = CaptchaSolver()
+        # 使用全局单例的 CaptchaSolver，避免重复初始化 PaddleOCR
+        captcha_solver = get_captcha_solver()
         
-        for attempt in range(max_attempts):
+        # 移除重试机制，直接执行，显示真实错误
+        try:
+            # 步骤 1: 创建验证码
             try:
-                # 步骤 1: 创建验证码
                 create_captcha_url = f"{self.server_base}/server/index.php?s=/api/common/createCaptcha"
                 create_response = self._make_request("POST", create_captcha_url, data={})
                 create_result = self._parse_json_response(create_response)
-                
-                if create_result.get("error_code") != 0:
-                    raise ShowDocAuthError(f"创建验证码失败: {create_result.get('error_message', '未知错误')}")
-                
-                captcha_id = create_result.get("data", {}).get("captcha_id")
-                if not captcha_id:
-                    raise ShowDocAuthError("创建验证码返回数据无效")
-                
-                # 步骤 2: 获取验证码图片
+            except Exception as e:
+                raise ShowDocAuthError(f"步骤1-创建验证码失败: {str(e)}")
+            
+            if create_result.get("error_code") != 0:
+                error_msg = create_result.get("error_message", "未知错误")
+                raise ShowDocAuthError(f"步骤1-创建验证码失败: {error_msg} (error_code={create_result.get('error_code')})")
+            
+            captcha_id = create_result.get("data", {}).get("captcha_id")
+            if not captcha_id:
+                raise ShowDocAuthError("步骤1-创建验证码失败: 返回数据中缺少 captcha_id")
+            
+            # 步骤 2: 获取验证码图片
+            try:
                 show_captcha_url = f"{self.server_base}/server/index.php?s=/api/common/showCaptcha&captcha_id={captcha_id}&{int(time.time() * 1000)}"
                 captcha_response = self._make_request("GET", show_captcha_url)
-                
-                if captcha_response.headers.get("Content-Type", "").startswith("image/"):
-                    captcha_image_bytes = captcha_response.content
-                else:
-                    raise ShowDocAuthError("获取验证码图片失败")
-                
-                # 步骤 3: 识别验证码
-                try:
-                    solve_result = captcha_solver.solve(captcha_image_bytes)
-                    captcha_text = solve_result.text
-                except ShowDocCaptchaError as e:
-                    if attempt < max_attempts - 1:
-                        # 验证码识别失败，重试
-                        time.sleep(0.5)  # 短暂延迟后重试
-                        continue
-                    else:
-                        raise ShowDocAuthError(f"验证码识别失败（已重试 {max_attempts} 次）: {str(e)}")
-                
-                # 步骤 4: 提交密码和验证码
-                # 注意：page_id 可以从 URL 中提取，如果没有则使用 item_id
-                # 根据示例，page_id 可能是可选的，先尝试使用 item_id
+            except Exception as e:
+                raise ShowDocAuthError(f"步骤2-获取验证码图片失败: {str(e)}")
+            
+            if not captcha_response.headers.get("Content-Type", "").startswith("image/"):
+                raise ShowDocAuthError(f"步骤2-获取验证码图片失败: 响应不是图片格式 (Content-Type: {captcha_response.headers.get('Content-Type')})")
+            
+            captcha_image_bytes = captcha_response.content
+            if not captcha_image_bytes:
+                raise ShowDocAuthError("步骤2-获取验证码图片失败: 图片内容为空")
+            
+            # 步骤 3: 识别验证码
+            # 直接调用，不重试，显示真实错误
+            solve_result = captcha_solver.solve(captcha_image_bytes)
+            captcha_text = solve_result.text
+            
+            # 步骤 4: 提交密码和验证码
+            try:
                 pwd_url = f"{self.server_base}/server/index.php?s=/api/item/pwd"
                 pwd_data = {
                     "item_id": self.item_id,
@@ -253,45 +256,37 @@ class ShowDocClient:
                     "captcha": captcha_text,
                     "captcha_id": captcha_id,
                 }
-                
                 pwd_response = self._make_request("POST", pwd_url, data=pwd_data)
                 pwd_result = self._parse_json_response(pwd_response)
-                
-                error_code = pwd_result.get("error_code")
-                
-                # 登录成功
-                if error_code == 0:
-                    # 登录成功，session 会自动保存 Cookie
-                    return
-                
-                # 验证码错误，重试
-                elif error_code == ERROR_CODE_CAPTCHA_INCORRECT:
-                    if attempt < max_attempts - 1:
-                        time.sleep(0.5)
-                        continue
-                    else:
-                        raise ShowDocAuthError(f"验证码错误（已重试 {max_attempts} 次）")
-                
-                # 密码错误或其他认证错误
-                elif error_code == ERROR_CODE_PASSWORD_REQUIRED or error_code in (10201, 10202, 10203, 10204, 10205):
-                    error_msg = pwd_result.get("error_message", "密码错误")
-                    raise ShowDocAuthError(f"密码错误: {error_msg}")
-                
-                # 其他错误
-                else:
-                    error_msg = pwd_result.get("error_message", "未知错误")
-                    raise ShowDocAuthError(f"登录失败 (error_code={error_code}): {error_msg}")
-            
-            except (ShowDocAuthError, ShowDocCaptchaError):
-                raise
             except Exception as e:
-                if attempt < max_attempts - 1:
-                    time.sleep(0.5)
-                    continue
-                else:
-                    raise ShowDocAuthError(f"登录过程发生异常（已重试 {max_attempts} 次）: {str(e)}")
+                raise ShowDocAuthError(f"步骤4-提交登录信息失败: {str(e)}")
+            
+            error_code = pwd_result.get("error_code")
+            
+            # 登录成功
+            if error_code == 0:
+                # 登录成功，session 会自动保存 Cookie
+                return
+            
+            # 验证码错误
+            elif error_code == ERROR_CODE_CAPTCHA_INCORRECT:
+                raise ShowDocAuthError(f"步骤4-验证码错误: {pwd_result.get('error_message', '验证码不正确')} (error_code={error_code})")
+            
+            # 密码错误或其他认证错误
+            elif error_code == ERROR_CODE_PASSWORD_REQUIRED or error_code in (10201, 10202, 10203, 10204, 10205):
+                error_msg = pwd_result.get("error_message", "密码错误")
+                raise ShowDocAuthError(f"步骤4-密码错误: {error_msg} (error_code={error_code})")
+            
+            # 其他错误
+            else:
+                error_msg = pwd_result.get("error_message", "未知错误")
+                raise ShowDocAuthError(f"步骤4-登录失败: {error_msg} (error_code={error_code})")
         
-        raise ShowDocAuthError(f"登录失败：已达到最大重试次数 ({max_attempts})")
+        except (ShowDocAuthError, ShowDocCaptchaError):
+            raise
+        except Exception as e:
+            # 直接抛出原始异常，不包装，显示真实错误
+            raise ShowDocAuthError(f"登录过程发生异常: {type(e).__name__}: {str(e)}")
     
     def fetch_homepage(self) -> Dict[str, Any]:
         """
