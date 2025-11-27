@@ -1,0 +1,38 @@
+
+POST https://doc.cqfengli.com/server/index.php?s=/api/item/getAiKnowledgeBaseConfig HTTP/1.1
+Host: doc.cqfengli.com
+Connection: keep-alive
+Content-Length: 10
+sec-ch-ua-platform: "Windows"
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36
+Accept: application/json, text/plain, */*
+sec-ch-ua: "Google Chrome";v="141", "Not?A_Brand";v="8", "Chromium";v="141"
+Content-Type: application/x-www-form-urlencoded
+DNT: 1
+sec-ch-ua-mobile: ?0
+Origin: https://doc.cqfengli.com
+Sec-Fetch-Site: same-origin
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: https://doc.cqfengli.com/web/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: zh-CN,zh;q=0.9,en;q=0.8
+Cookie: PHPSESSID=c2f6b1s87gked0ro5qo93etsi0; think_language=zh-CN
+
+item_id=49
+
+HTTP/1.1 200 OK
+Server: nginx
+Date: Tue, 25 Nov 2025 03:40:15 GMT
+Content-Type: text/html; charset=UTF-8
+Connection: keep-alive
+Vary: Accept-Encoding
+Expires: Thu, 19 Nov 1981 08:52:00 GMT
+Cache-Control: no-store, no-cache, must-revalidate
+Pragma: no-cache
+Strict-Transport-Security: max-age=31536000
+Content-Length: 119
+
+{"error_code":0,"data":{"item_id":49,"enabled":0,"dialog_collapsed":1,"welcome_message":"","addtime":0,"updatetime":0}}
+
+说明：获取文档项目的 AI 知识库配置信息。此接口返回项目的 AI 功能相关配置（如是否启用、欢迎消息等）。此步骤为可选步骤，不影响接口文档数据的获取。

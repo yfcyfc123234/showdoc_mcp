@@ -1,0 +1,92 @@
+# ShowDoc MCP 服务需求文档
+
+## 项目概述
+
+开发一个适用于 Cursor 的 ShowDoc MCP 服务，使用 Python 实现。
+
+## 现实痛点
+
+服务器会把接口文档放在网页中，客户端开发者需要手动查看：
+- API 地址定义
+- 请求参数格式
+- 返回数据格式
+- 其他接口详情
+
+这些步骤重复且繁琐，影响开发效率。
+
+## 目标功能
+
+给 MCP 服务提供一个 URL（ShowDoc 服务器接口地址）和用户 Cookie，就能实现：
+
+1. **自动获取接口数据**：按照指定层级返回所有接口数据
+2. **数据格式化**：封装成期望的数据格式
+   - 类似 Android 的实体类（Entity/Data Class）
+   - 类似 Retrofit 的 Service 接口配置
+
+## API 调用流程说明
+
+参考以下文件了解完整的调用流程：
+- `api_example_01.txt` - 第一步：访问主页面
+- `api_example_02.txt` - 第二步：获取目录结构
+- `api_example_03.txt` - 第三步：获取 AI 配置
+- `api_example_04.txt` - 第四步：获取页面详情
+
+**流程概述**：经过以下四步，最终才能在页面上看到接口信息，MCP 服务需要模拟这些步骤：
+
+### 第一步：访问主页面
+- **接口**：`GET https://doc.cqfengli.com/web/`
+- **作用**：获取服务器配置和初始化信息
+
+### 第二步：获取文档目录结构
+- **接口**：`POST /api/item/info`
+- **作用**：获取整个文档的目录树结构
+
+### 第三步：获取 AI 知识库配置（可选）
+- **接口**：`POST /api/item/getAiKnowledgeBaseConfig`
+- **作用**：可能与 AI 功能相关，需要进一步确认
+
+### 第四步：获取页面详细信息
+- **接口**：`POST /api/page/info`
+- **作用**：获取选中页面的详细接口信息，包括请求参数、返回格式等
+
+## 数据处理注意事项
+
+### HTML 实体编码处理
+
+`&quot;` 是 HTML 实体编码，代表双引号 `"`。
+
+**原因**：`page_content` 字段的值是一个嵌套的 JSON 字符串，为了避免双引号冲突而进行的转义。
+
+**解码步骤**：
+1. 先使用 HTML 实体解码，将 `&quot;` 转回 `"`
+2. 再解析为 JSON 对象
+
+### Python 解码示例
+
+```python
+import json
+import html
+
+# 假设从接口获取的原始数据
+raw_data = {
+    "error_code": 0,
+    "data": {
+        "page_content": "{&quot;page_title&quot;:&quot;\u83b7\u53d6\u62cd\u7167\u6559\u7a0b&quot;,...}"
+    }
+}
+
+# 1. 获取 page_content 字符串
+encoded_content = raw_data["data"]["page_content"]
+
+# 2. HTML 实体解码
+decoded_content = html.unescape(encoded_content)
+
+# 3. 解析为 JSON 对象
+page_content = json.loads(decoded_content)
+
+print(page_content["page_title"])  # 输出：获取拍照教程
+```
+
+## 相关文档
+
+- `README.md` - 详细的接口调用文档和请求示例

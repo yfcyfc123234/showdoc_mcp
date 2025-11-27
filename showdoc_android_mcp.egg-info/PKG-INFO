@@ -1,0 +1,11 @@
+Metadata-Version: 2.4
+Name: showdoc-android-mcp
+Version: 0.1.0
+Summary: ShowDoc -> Android codegen MCP server (core + android_codegen + mcp_showdoc_android).
+Author-email: fengli <dev@example.com>
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+Requires-Dist: requests>=2.28.0
+Requires-Dist: mcp>=0.1.0
+Provides-Extra: dev
+Requires-Dist: rich>=13.0.0; extra == "dev"

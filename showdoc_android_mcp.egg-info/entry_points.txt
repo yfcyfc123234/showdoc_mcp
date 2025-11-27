@@ -1,0 +1,2 @@
+[console_scripts]
+showdoc-android-mcp = mcp_showdoc_android.mcp_server:main

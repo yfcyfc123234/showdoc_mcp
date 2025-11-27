@@ -1,0 +1,27 @@
+# Android 代码生成器依赖
+# 注意：此模块依赖 core 模块，core 模块的依赖请参考 core/requirements.txt
+
+# ========== 翻译功能（可选）==========
+# 代码生成器支持自动将中文翻译为英文，支持多种翻译方式
+
+# 方式一：Google 翻译（免费，无需 API 密钥）
+# 安装: pip install googletrans==4.0.0rc1
+# 注意：可能不稳定，受网络环境影响
+googletrans==4.0.0rc1
+
+# 方式二：微软翻译 API（推荐，更稳定）
+# 无需额外安装依赖（使用 requests，通常已随 core 模块安装）
+# 配置方式：
+#   1. 访问 https://portal.azure.com/ 创建"翻译器"服务
+#   2. 设置环境变量 MICROSOFT_TRANSLATOR_KEY（必需）
+#   3. 可选：MICROSOFT_TRANSLATOR_REGION（默认 'global'）
+#   4. 可选：MICROSOFT_TRANSLATOR_ENDPOINT（默认使用官方端点）
+# 免费额度：每月 200 万字符
+# 详细配置说明请参考：TRANSLATION.md
+
+# 方式三：仅使用映射表（不安装任何依赖）
+# 如果翻译 API 都不可用，会自动使用最小映射表作为兜底
+
+# 优先级：微软翻译 > Google 翻译 > 映射表
+# 翻译结果会自动缓存，避免重复翻译相同文本
+# ====================================

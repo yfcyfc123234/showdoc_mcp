@@ -1,0 +1,28 @@
+POST https://doc.cqfengli.com/server/index.php?s=/api/common/createCaptcha HTTP/1.1
+Cookie: PHPSESSID=tg7ja3au64div38p58abmomtt1; think_language=zh-CN
+User-Agent: PostmanRuntime/7.49.1
+Accept: */*
+Cache-Control: no-cache
+Postman-Token: 005863c7-1234-4813-a42c-90eca124ea72
+Host: doc.cqfengli.com
+Accept-Encoding: gzip, deflate, br
+Connection: keep-alive
+Content-Type: application/x-www-form-urlencoded
+Content-Length: 41
+
+item_id=106&keyword=&default_page_id=5788
+
+
+HTTP/1.1 200 OK
+Server: nginx
+Date: Wed, 26 Nov 2025 09:38:12 GMT
+Content-Type: text/html; charset=UTF-8
+Connection: keep-alive
+Vary: Accept-Encoding
+Expires: Thu, 19 Nov 1981 08:52:00 GMT
+Cache-Control: no-store, no-cache, must-revalidate
+Pragma: no-cache
+Strict-Transport-Security: max-age=31536000
+Content-Length: 45
+
+{"error_code":0,"data":{"captcha_id":"9746"}}
