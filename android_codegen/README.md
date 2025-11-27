@@ -49,10 +49,18 @@ from core import ShowDocClient
 from android_codegen import AndroidCodeGenerator
 
 # 1. 从 ShowDoc 获取 API 数据
+# 方式1：使用密码自动登录（推荐，Cookie 会自动保存）
+client = ShowDocClient(
+    base_url="https://doc.cqfengli.com/web/#/90/",
+    password="123456"  # 默认密码，可省略
+)
+
+# 方式2：使用 Cookie（如果已有保存的 Cookie，会自动复用）
 client = ShowDocClient(
     base_url="https://doc.cqfengli.com/web/#/90/",
     cookie="think_language=zh-CN; PHPSESSID=xxx"
 )
+
 api_tree = client.get_all_apis(node_name="订单")
 
 # 2. 生成 Android 代码

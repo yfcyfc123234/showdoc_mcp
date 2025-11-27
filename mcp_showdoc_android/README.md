@@ -17,11 +17,15 @@
   - 直接调用 `core.ShowDocClient(base_url, cookie).get_all_apis(node_name=...)`；
   - 使用 `ApiTree.to_dict()` 转换为 JSON 友好的结构。
 - **典型入参**：
-  - `base_url: str` —— ShowDoc 项目 URL，如 `https://doc.cqfengli.com/web/#/90/`
+  - `base_url: str` —— ShowDoc 项目 URL，支持多种格式：
+    - 标准格式：`https://doc.cqfengli.com/web/#/90/`
+    - 登录页面格式：`https://doc.cqfengli.com/web/#/item/password/88?page_id=4091`
   - `cookie: Optional[str]` —— 认证 Cookie（可选，如果提供 password 则可不提供）
-  - `password: Optional[str]` —— 项目访问密码（可选，如果提供 cookie 则可不提供），将自动进行验证码登录
+  - `password: Optional[str]` —— 项目访问密码（可选，默认 "123456"，如果提供 cookie 则可不提供），将自动进行验证码登录
   - `node_name: Optional[str]` —— 可选节点名（分类），`None` / `"全部"` / `"all"` 表示全量
   - `save_path: Optional[str]` —— 可选，本地快照保存路径，例如 `showdoc_export_90.json`
+
+**Cookie 自动管理**：登录成功后的 Cookie 会自动保存到 `.showdoc_cookies.json`，下次运行时自动复用（如果有效且未过期）。
 - **典型出参**（JSON 对象）：
   - `api_tree`：`ApiTree.to_dict()` 的结果
   - `snapshot_path`：如果有保存快照，则返回文件路径

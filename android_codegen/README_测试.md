@@ -306,7 +306,7 @@ class OrderRepository {
 **解决**: 
 - 确保在项目根目录或 android_codegen 目录下运行
 - 使用 `python -m android_codegen.test` 的方式运行
-- 确保已安装 core 模块的依赖（参考 `core/requirements.txt`）
+- 确保已安装所有依赖（参考根目录 `requirements.txt`）
 
 ### 4. 生成的代码需要手动调整
 

@@ -5,8 +5,22 @@
 ## 安装依赖
 
 ```bash
-pip install -r requirements.txt
+# 推荐：从项目根目录安装
+python -m pip install -r ../requirements.txt
+
+# 或在 core 目录内安装（兼容旧流程）
+python -m pip install -r requirements.txt
 ```
+
+### 验证码识别
+
+项目使用 **ddddocr** 进行验证码识别，这是一个基于深度学习的通用验证码识别库：
+- 识别准确率高
+- 支持多种验证码类型（数字、字母、混合等）
+- 无需额外安装 OCR 程序，纯 Python 实现
+- 项目地址：https://github.com/sml2h3/ddddocr
+
+安装依赖后即可使用，无需额外配置。
 
 ## 使用方法
 
@@ -76,9 +90,17 @@ api_tree = client.get_all_apis("订单")
 
 初始化客户端。
 
-- `base_url`: ShowDoc 文档页面 URL，例如 `"https://doc.cqfengli.com/web/#/90/"`
+- `base_url`: ShowDoc 文档页面 URL，支持多种格式：
+  - 标准格式：`"https://doc.cqfengli.com/web/#/90/"`
+  - 登录页面格式：`"https://doc.cqfengli.com/web/#/item/password/88?page_id=4091"`
 - `cookie`: 认证 Cookie（可选），例如 `"think_language=zh-CN; PHPSESSID=xxx"`
 - `password`: 项目访问密码（可选，默认: "123456"），如果提供且 cookie 为空，将自动进行验证码登录
+
+**Cookie 自动管理**：
+- 登录成功后的 Cookie 会自动保存到本地文件 `.showdoc_cookies.json`
+- 下次运行时，如果 Cookie 有效且未过期，会自动复用，无需重新登录
+- Cookie 优先级：传入的 Cookie > 保存的 Cookie > 密码登录
+- Cookie 默认过期时间：24 小时
 
 #### `get_all_apis(node_name: Optional[str] = None) -> ApiTree`
 
@@ -126,4 +148,16 @@ except ShowDocAuthError as e:
 except Exception as e:
     print(f"其他错误: {e}")
 ```
+
+## 验证码调试
+
+- 使用 ddddocr 进行验证码识别，支持多种验证码类型
+- 登录失败（验证码错误或识别异常）时，会自动重试并将失败的验证码图片保存到 `captcha_debug/` 目录，便于人工排查
+- 每次运行程序时会自动清理旧的调试目录，只保留当前会话的调试信息
+- 可通过环境变量修改保存目录：
+  ```bash
+  # PowerShell
+  $env:SHOWDOC_CAPTCHA_DEBUG_DIR="D:\tmp\captcha_debug"
+  ```
+- 如果验证码持续无法识别，可在 `core/test.py` 中直接配置 COOKIE，或手动输入验证码
 

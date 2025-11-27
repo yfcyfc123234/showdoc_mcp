@@ -170,4 +170,7 @@ tmp/
 # MCP / ShowDoc specific
 *.snapshot
 showdoc_export_*.json
+.showdoc_cookies.json
+
+captcha_debug/
 

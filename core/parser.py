@@ -19,6 +19,12 @@ def parse_showdoc_url(url: str) -> Dict[str, str]:
     """
     从 ShowDoc URL 中提取服务器地址和 item_id
     
+    支持的 URL 格式：
+    1. 标准格式：https://doc.example.com/web/#/90/
+    2. 登录页面：https://doc.example.com/web/#/item/password/88?page_id=4091
+    3. 查询参数：https://doc.example.com/web/#/90/?item_id=90
+    4. 路径参数：https://doc.example.com/web/90/
+    
     Args:
         url: ShowDoc 文档 URL，例如 "https://doc.cqfengli.com/web/#/90/"
     
@@ -35,20 +41,29 @@ def parse_showdoc_url(url: str) -> Dict[str, str]:
         # 从 URL 中提取 item_id
         # 可能的位置：
         # 1. 哈希路径：/web/#/90/ -> 90
-        # 2. 查询参数：?item_id=90
-        # 3. 路径参数：/web/90/
+        # 2. 哈希路径（登录页）：/web/#/item/password/88 -> 88
+        # 3. 查询参数：?item_id=90
+        # 4. 路径参数：/web/90/
         
         item_id = None
         
         # 尝试从哈希路径提取
         if parsed.fragment:
-            # 哈希格式可能是 #/90/ 或 #/item/90 或直接是数字
-            # 示例: #/90/ 或 #/item/90 或 90
             fragment = parsed.fragment
-            # 先尝试匹配 #/90/ 格式
-            match = re.search(r'^/?(\d+)', fragment)
-            if match:
-                item_id = match.group(1)
+            # 支持的哈希格式：
+            # - #/90/ 或 #/90 -> 90
+            # - #/item/password/88 -> 88
+            # - #/item/88 -> 88
+            
+            # 先尝试匹配路径中的数字（如 /item/password/88 或 /item/88）
+            path_match = re.search(r'/(?:item|password)/(\d+)', fragment)
+            if path_match:
+                item_id = path_match.group(1)
+            else:
+                # 再尝试匹配开头的数字（如 /90/ 或 90）
+                match = re.search(r'^/?(\d+)', fragment)
+                if match:
+                    item_id = match.group(1)
         
         # 尝试从查询参数提取
         if not item_id:
@@ -65,8 +80,11 @@ def parse_showdoc_url(url: str) -> Dict[str, str]:
         if not item_id:
             raise ShowDocParseError(f"无法从 URL 中提取 item_id: {url}")
         
+        # 提取 page_id（可能在查询参数或 redirect 参数中）
+        page_id = None
         page_id_match = re.search(r'page_id=(\d+)', url)
-        page_id = page_id_match.group(1) if page_id_match else None
+        if page_id_match:
+            page_id = page_id_match.group(1)
         
         return {
             "server_base": server_base,

@@ -2,8 +2,11 @@
 ShowDoc 客户端主类
 """
 import json
+import os
 import re
 import time
+from datetime import datetime
+from pathlib import Path
 from typing import Optional, Dict, Any, List
 
 import requests
@@ -26,7 +29,8 @@ from .parser import (
     filter_categories_by_name,
     build_category_tree
 )
-from .captcha_solver import CaptchaSolver, CaptchaSolveResult
+from .simple_captcha_solver import CaptchaSolver, CaptchaSolveResult
+from .cookie_manager import CookieManager
 from .models import (
     ItemInfo,
     Category,
@@ -52,7 +56,9 @@ class ShowDocClient:
         url_info = parse_showdoc_url(base_url)
         self.server_base = url_info["server_base"]
         self.item_id = url_info["item_id"]
-        self.cookie = cookie
+        
+        # 初始化 Cookie 管理器
+        self.cookie_manager = CookieManager()
         
         # 初始化 HTTP session
         self.session = requests.Session()
@@ -74,22 +80,45 @@ class ShowDocClient:
             "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
         })
         
-        # 如果提供了 Cookie，直接设置
+        # Cookie 优先级：参数传入 > 保存的 Cookie > 密码登录
         if cookie:
+            # 如果提供了 Cookie，直接使用并保存
+            print(f"[{datetime.now().strftime('%H:%M:%S')}] 使用传入的 Cookie")
+            self.cookie = cookie
             self.session.headers["Cookie"] = cookie
-        # 如果没有 Cookie 但提供了密码，自动进行密码登录
-        elif password:
-            self.authenticate_with_password(password)
-            # 登录成功后，从 session 中提取 Cookie
-            cookies_dict = self.session.cookies.get_dict()
-            cookie_parts = []
-            for key, value in cookies_dict.items():
-                cookie_parts.append(f"{key}={value}")
-            if cookie_parts:
-                self.cookie = "; ".join(cookie_parts)
-                self.session.headers["Cookie"] = self.cookie
+            # 保存 Cookie 以备下次使用
+            self.cookie_manager.save_cookie(self.server_base, self.item_id, cookie)
         else:
-            raise ShowDocAuthError("必须提供 cookie 或 password 之一进行认证")
+            # 尝试从保存的 Cookie 中加载
+            saved_cookie = self.cookie_manager.get_cookie(self.server_base, self.item_id)
+            if saved_cookie:
+                print(f"[{datetime.now().strftime('%H:%M:%S')}] 找到已保存的 Cookie，尝试使用...")
+                self.cookie = saved_cookie
+                self.session.headers["Cookie"] = saved_cookie
+                
+                # 验证 Cookie 是否有效（可选：可以在这里测试一下）
+                # 如果没有提供 password，说明用户只想用 Cookie，不需要验证
+                if not password:
+                    print(f"[{datetime.now().strftime('%H:%M:%S')}] 使用已保存的 Cookie（未提供密码，跳过验证）")
+                # 如果提供了 password，说明可能需要登录，但不立即验证（避免额外请求）
+                # 如果 Cookie 无效，后续请求会失败，然后可以自动重试登录
+            elif password:
+                # 没有保存的 Cookie，使用密码登录
+                print(f"[{datetime.now().strftime('%H:%M:%S')}] 未找到保存的 Cookie，将使用密码登录")
+                self.authenticate_with_password(password)
+                # 登录成功后，从 session 中提取 Cookie 并保存
+                cookies_dict = self.session.cookies.get_dict()
+                cookie_parts = []
+                for key, value in cookies_dict.items():
+                    cookie_parts.append(f"{key}={value}")
+                if cookie_parts:
+                    self.cookie = "; ".join(cookie_parts)
+                    self.session.headers["Cookie"] = self.cookie
+                    # 保存 Cookie 以备下次使用
+                    print(f"[{datetime.now().strftime('%H:%M:%S')}] 登录成功，保存 Cookie 到本地")
+                    self.cookie_manager.save_cookie(self.server_base, self.item_id, self.cookie)
+            else:
+                raise ShowDocAuthError("必须提供 cookie 或 password 之一进行认证")
     
     def _make_request(
         self,
@@ -192,7 +221,12 @@ class ShowDocClient:
         except Exception as e:
             raise ShowDocParseError(f"解析响应失败: {str(e)}")
     
-    def authenticate_with_password(self, password: str, max_attempts: int = 5) -> None:
+    def authenticate_with_password(
+        self,
+        password: str,
+        max_attempts: int = 5,
+        debug_save_failed_captcha: bool = True,
+    ) -> None:
         """
         使用密码和验证码进行自动登录
         
@@ -205,47 +239,72 @@ class ShowDocClient:
             ShowDocCaptchaError: 验证码识别失败
         """
         from .parser import ERROR_CODE_PASSWORD_REQUIRED, ERROR_CODE_CAPTCHA_INCORRECT
+        from .simple_captcha_solver import get_captcha_solver
         
-        captcha_solver = CaptchaSolver()
+        print(f"[{datetime.now().strftime('%H:%M:%S')}] ========== 开始密码登录流程 ==========")
+        print(f"[{datetime.now().strftime('%H:%M:%S')}] 项目 ID: {self.item_id}, 最大重试次数: {max_attempts}")
         
-        for attempt in range(max_attempts):
+        captcha_solver = get_captcha_solver()
+        last_error: Optional[Exception] = None
+        
+        for attempt in range(1, max_attempts + 1):
+            print(f"[{datetime.now().strftime('%H:%M:%S')}] --- 第 {attempt}/{max_attempts} 次尝试 ---")
+            captcha_image_bytes: Optional[bytes] = None
+            captcha_id: Optional[str] = None
             try:
-                # 步骤 1: 创建验证码
+                # 步骤1: 创建验证码
+                print(f"[{datetime.now().strftime('%H:%M:%S')}] 步骤1: 开始创建验证码 (尝试 {attempt}/{max_attempts})")
+                
+                print(f"[{datetime.now().strftime('%H:%M:%S')}]   1.1: 准备创建验证码请求 URL")
                 create_captcha_url = f"{self.server_base}/server/index.php?s=/api/common/createCaptcha"
+                
+                print(f"[{datetime.now().strftime('%H:%M:%S')}]   1.2: 发送 POST 请求到服务器...")
                 create_response = self._make_request("POST", create_captcha_url, data={})
+                
+                print(f"[{datetime.now().strftime('%H:%M:%S')}]   1.3: 解析服务器响应...")
                 create_result = self._parse_json_response(create_response)
                 
+                print(f"[{datetime.now().strftime('%H:%M:%S')}]   1.4: 检查响应错误码...")
                 if create_result.get("error_code") != 0:
-                    raise ShowDocAuthError(f"创建验证码失败: {create_result.get('error_message', '未知错误')}")
+                    error_msg = create_result.get("error_message", "未知错误")
+                    raise ShowDocAuthError(f"步骤1-创建验证码失败: {error_msg} (error_code={create_result.get('error_code')})")
                 
+                print(f"[{datetime.now().strftime('%H:%M:%S')}]   1.5: 提取验证码 ID...")
                 captcha_id = create_result.get("data", {}).get("captcha_id")
                 if not captcha_id:
-                    raise ShowDocAuthError("创建验证码返回数据无效")
+                    raise ShowDocAuthError("步骤1-创建验证码失败: 返回数据中缺少 captcha_id")
+                print(f"[{datetime.now().strftime('%H:%M:%S')}]   1.6: 验证码创建成功，ID: {captcha_id}")
                 
-                # 步骤 2: 获取验证码图片
+                # 步骤2: 获取验证码图片
+                print(f"[{datetime.now().strftime('%H:%M:%S')}] 步骤2: 开始获取验证码图片")
+                
+                print(f"[{datetime.now().strftime('%H:%M:%S')}]   2.1: 构建验证码图片请求 URL...")
                 show_captcha_url = f"{self.server_base}/server/index.php?s=/api/common/showCaptcha&captcha_id={captcha_id}&{int(time.time() * 1000)}"
+                
+                print(f"[{datetime.now().strftime('%H:%M:%S')}]   2.2: 发送 GET 请求获取图片...")
                 captcha_response = self._make_request("GET", show_captcha_url)
                 
-                if captcha_response.headers.get("Content-Type", "").startswith("image/"):
-                    captcha_image_bytes = captcha_response.content
-                else:
-                    raise ShowDocAuthError("获取验证码图片失败")
+                print(f"[{datetime.now().strftime('%H:%M:%S')}]   2.3: 检查响应内容类型...")
+                if not captcha_response.headers.get("Content-Type", "").startswith("image/"):
+                    raise ShowDocAuthError(f"步骤2-获取验证码图片失败: 响应不是图片格式 (Content-Type: {captcha_response.headers.get('Content-Type')})")
                 
-                # 步骤 3: 识别验证码
-                try:
-                    solve_result = captcha_solver.solve(captcha_image_bytes)
-                    captcha_text = solve_result.text
-                except ShowDocCaptchaError as e:
-                    if attempt < max_attempts - 1:
-                        # 验证码识别失败，重试
-                        time.sleep(0.5)  # 短暂延迟后重试
-                        continue
-                    else:
-                        raise ShowDocAuthError(f"验证码识别失败（已重试 {max_attempts} 次）: {str(e)}")
+                print(f"[{datetime.now().strftime('%H:%M:%S')}]   2.4: 提取图片数据...")
+                captcha_image_bytes = captcha_response.content
+                if not captcha_image_bytes:
+                    raise ShowDocAuthError("步骤2-获取验证码图片失败: 图片内容为空")
+                print(f"[{datetime.now().strftime('%H:%M:%S')}]   2.5: 验证码图片获取成功，大小: {len(captcha_image_bytes)} 字节")
                 
-                # 步骤 4: 提交密码和验证码
-                # 注意：page_id 可以从 URL 中提取，如果没有则使用 item_id
-                # 根据示例，page_id 可能是可选的，先尝试使用 item_id
+                # 步骤3: 识别验证码
+                print(f"[{datetime.now().strftime('%H:%M:%S')}] 步骤3: 开始识别验证码")
+                print(f"[{datetime.now().strftime('%H:%M:%S')}]   3.1: 调用 OCR 识别引擎...")
+                solve_result = captcha_solver.solve(captcha_image_bytes)
+                captcha_text = solve_result.text
+                print(f"[{datetime.now().strftime('%H:%M:%S')}]   3.2: 识别完成，结果: {captcha_text}")
+                
+                # 步骤4: 提交登录请求
+                print(f"[{datetime.now().strftime('%H:%M:%S')}] 步骤4: 开始提交登录请求")
+                
+                print(f"[{datetime.now().strftime('%H:%M:%S')}]   4.1: 准备登录请求数据...")
                 pwd_url = f"{self.server_base}/server/index.php?s=/api/item/pwd"
                 pwd_data = {
                     "item_id": self.item_id,
@@ -254,44 +313,97 @@ class ShowDocClient:
                     "captcha_id": captcha_id,
                 }
                 
+                print(f"[{datetime.now().strftime('%H:%M:%S')}]   4.2: 发送登录请求到服务器...")
                 pwd_response = self._make_request("POST", pwd_url, data=pwd_data)
+                
+                print(f"[{datetime.now().strftime('%H:%M:%S')}]   4.3: 解析登录响应...")
                 pwd_result = self._parse_json_response(pwd_response)
                 
                 error_code = pwd_result.get("error_code")
+                print(f"[{datetime.now().strftime('%H:%M:%S')}]   4.4: 检查登录结果，错误码: {error_code}")
                 
-                # 登录成功
                 if error_code == 0:
-                    # 登录成功，session 会自动保存 Cookie
+                    print(f"[{datetime.now().strftime('%H:%M:%S')}] 步骤4-登录成功！")
+                    # 登录成功后，从 session 中提取 Cookie 并保存
+                    cookies_dict = self.session.cookies.get_dict()
+                    cookie_parts = []
+                    for key, value in cookies_dict.items():
+                        cookie_parts.append(f"{key}={value}")
+                    if cookie_parts:
+                        self.cookie = "; ".join(cookie_parts)
+                        self.session.headers["Cookie"] = self.cookie
+                        # 保存 Cookie 到本地文件，以便下次直接使用
+                        print(f"[{datetime.now().strftime('%H:%M:%S')}]   保存登录 Cookie 到本地文件...")
+                        self.cookie_manager.save_cookie(self.server_base, self.item_id, self.cookie)
                     return
                 
-                # 验证码错误，重试
-                elif error_code == ERROR_CODE_CAPTCHA_INCORRECT:
-                    if attempt < max_attempts - 1:
-                        time.sleep(0.5)
-                        continue
-                    else:
-                        raise ShowDocAuthError(f"验证码错误（已重试 {max_attempts} 次）")
-                
-                # 密码错误或其他认证错误
-                elif error_code == ERROR_CODE_PASSWORD_REQUIRED or error_code in (10201, 10202, 10203, 10204, 10205):
-                    error_msg = pwd_result.get("error_message", "密码错误")
-                    raise ShowDocAuthError(f"密码错误: {error_msg}")
-                
-                # 其他错误
-                else:
-                    error_msg = pwd_result.get("error_message", "未知错误")
-                    raise ShowDocAuthError(f"登录失败 (error_code={error_code}): {error_msg}")
-            
-            except (ShowDocAuthError, ShowDocCaptchaError):
-                raise
-            except Exception as e:
-                if attempt < max_attempts - 1:
-                    time.sleep(0.5)
+                if error_code == ERROR_CODE_CAPTCHA_INCORRECT:
+                    error_msg = pwd_result.get("error_message", "验证码不正确")
+                    print(f"[{datetime.now().strftime('%H:%M:%S')}] 步骤4-验证码错误: {error_msg} (error_code={error_code})，将重试...")
+                    last_error = ShowDocAuthError(
+                        f"步骤4-验证码错误: {error_msg} (error_code={error_code})"
+                    )
+                    if debug_save_failed_captcha:
+                        self._save_captcha_image(captcha_image_bytes, attempt, "server_rejected", captcha_id)
                     continue
-                else:
-                    raise ShowDocAuthError(f"登录过程发生异常（已重试 {max_attempts} 次）: {str(e)}")
+                
+                if error_code == ERROR_CODE_PASSWORD_REQUIRED or error_code in (10201, 10202, 10203, 10204, 10205):
+                    error_msg = pwd_result.get("error_message", "密码错误")
+                    print(f"[{datetime.now().strftime('%H:%M:%S')}] 步骤4-密码错误: {error_msg} (error_code={error_code})")
+                    raise ShowDocAuthError(f"步骤4-密码错误: {error_msg} (error_code={error_code})")
+                
+                error_msg = pwd_result.get("error_message", "未知错误")
+                print(f"[{datetime.now().strftime('%H:%M:%S')}] 步骤4-登录失败: {error_msg} (error_code={error_code})")
+                raise ShowDocAuthError(f"步骤4-登录失败: {error_msg} (error_code={error_code})")
+            
+            except ShowDocCaptchaError as e:
+                print(f"[{datetime.now().strftime('%H:%M:%S')}] ✗ 验证码识别失败: {e}")
+                last_error = e
+                if debug_save_failed_captcha:
+                    print(f"[{datetime.now().strftime('%H:%M:%S')}]   保存失败图片到调试目录...")
+                    self._save_captcha_image(captcha_image_bytes, attempt, "ocr_error", captcha_id)
+                if attempt == max_attempts:
+                    print(f"[{datetime.now().strftime('%H:%M:%S')}] ✗ 已达到最大重试次数 ({max_attempts})，终止登录")
+                    raise
+            except ShowDocAuthError as e:
+                print(f"[{datetime.now().strftime('%H:%M:%S')}] ✗ 登录认证失败: {e}")
+                last_error = e
+                if "验证码" in str(e) and debug_save_failed_captcha:
+                    print(f"[{datetime.now().strftime('%H:%M:%S')}]   保存失败图片到调试目录...")
+                    self._save_captcha_image(captcha_image_bytes, attempt, "auth_error", captcha_id)
+                if attempt == max_attempts:
+                    print(f"[{datetime.now().strftime('%H:%M:%S')}] ✗ 已达到最大重试次数 ({max_attempts})，终止登录")
+                    raise
+            else:
+                last_error = None
         
-        raise ShowDocAuthError(f"登录失败：已达到最大重试次数 ({max_attempts})")
+        print(f"[{datetime.now().strftime('%H:%M:%S')}] ========== 登录流程结束 ==========")
+        if last_error:
+            raise last_error
+        raise ShowDocAuthError("验证码识别失败，且已达到最大重试次数。")
+    
+    def _save_captcha_image(
+        self,
+        image_bytes: Optional[bytes],
+        attempt: int,
+        reason: str,
+        captcha_id: Optional[str] = None,
+    ) -> Optional[Path]:
+        if not image_bytes:
+            return None
+        try:
+            debug_dir = Path(os.environ.get("SHOWDOC_CAPTCHA_DEBUG_DIR", "captcha_debug"))
+            debug_dir.mkdir(parents=True, exist_ok=True)
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+            filename = f"captcha_{timestamp}_attempt{attempt}_{reason}"
+            if captcha_id:
+                filename += f"_{captcha_id}"
+            file_path = debug_dir / f"{filename}.png"
+            with file_path.open("wb") as f:
+                f.write(image_bytes)
+            return file_path
+        except Exception:
+            return None
     
     def fetch_homepage(self) -> Dict[str, Any]:
         """

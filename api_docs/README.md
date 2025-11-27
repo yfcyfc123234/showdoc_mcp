@@ -121,7 +121,7 @@ print(page_content["page_title"])  # 输出：获取拍照教程
    - 返回：验证码图片（PNG/JPEG 格式）
 
 3. **识别验证码**
-   - 使用 OpenCV + Tesseract OCR 进行图像预处理和字符识别
+   - 使用 ddddocr 进行验证码识别
    - 支持自动重试（默认最多 5 次）
 
 4. **提交密码和验证码**
@@ -145,12 +145,9 @@ print(page_content["page_title"])  # 输出：获取拍照教程
 自动登录功能需要以下 Python 包：
 - `opencv-python>=4.8.0`：图像处理
 - `numpy>=1.24.0`：数组操作
-- `pytesseract>=0.3.10`：OCR 识别
+- `ddddocr>=1.4.0`：验证码识别
 
-此外，需要安装 **Tesseract OCR** 可执行文件：
-- Windows: 从 [GitHub Releases](https://github.com/UB-Mannheim/tesseract/wiki) 下载安装
-- macOS: `brew install tesseract`
-- Linux: `sudo apt-get install tesseract-ocr` 或 `sudo yum install tesseract`
+ddddocr 是纯 Python 实现，无需额外安装 OCR 程序，安装依赖后即可使用。
 
 ### 使用示例
 

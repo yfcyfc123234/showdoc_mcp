@@ -27,8 +27,8 @@ python -m core.test
 # ShowDoc URL
 BASE_URL = "https://doc.cqfengli.com/web/#/90"
 
-# Cookie（用于认证）
-COOKIE = "think_language=zh-CN; PHPSESSID=xxx"
+# Cookie（用于认证，可选，如果提供 password 则可不提供）
+COOKIE = None  # 可选，如果提供则使用 Cookie 认证
 
 # 节点名称（None=全部，或指定节点名称如 "订单"）
 NODE_NAME = None
@@ -206,7 +206,10 @@ SHOW_DETAILS = False
 
 **错误**: `ShowDocAuthError: 认证失败`
 
-**解决**: 检查 Cookie 是否有效，重新登录 ShowDoc 获取新 Cookie。
+**解决**: 
+- 如果使用密码登录：验证码识别失败或密码错误，会自动重试（最多 5 次）
+- 如果使用 Cookie：检查 Cookie 是否有效，重新登录 ShowDoc 获取新 Cookie
+- 如果使用保存的 Cookie：可能已过期，删除 `.showdoc_cookies.json` 后重新登录
 
 ### 2. 节点不存在
 
@@ -224,7 +227,25 @@ SHOW_DETAILS = False
 - 确保在项目根目录或 core 目录下运行
 - 使用 `python -m core.test` 的方式运行
 
-## 获取 Cookie
+## Cookie 管理
+
+### 方式1：自动保存和复用（推荐）
+
+使用密码登录时，Cookie 会自动保存到 `.showdoc_cookies.json`，下次运行时自动复用：
+
+```python
+# 第一次运行 - 使用密码登录
+client = ShowDocClient(BASE_URL, password="123456")
+# Cookie 会自动保存
+
+# 第二次运行 - 自动使用保存的 Cookie，无需再次登录
+client = ShowDocClient(BASE_URL, password="123456")
+# 会自动加载保存的 Cookie
+```
+
+### 方式2：手动获取 Cookie
+
+如果需要手动获取 Cookie：
 
 1. 在浏览器中登录 ShowDoc
 2. 打开开发者工具（F12）
