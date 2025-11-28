@@ -209,7 +209,7 @@ SHOW_DETAILS = False
 **解决**: 
 - 如果使用密码登录：验证码识别失败或密码错误，会自动重试（最多 5 次）
 - 如果使用 Cookie：检查 Cookie 是否有效，重新登录 ShowDoc 获取新 Cookie
-- 如果使用保存的 Cookie：可能已过期，删除 `.showdoc_cookies.json` 后重新登录
+- 如果使用保存的 Cookie：可能已过期，删除 `output/.showdoc_cookies.json` 后重新登录
 
 ### 2. 节点不存在
 
@@ -231,7 +231,7 @@ SHOW_DETAILS = False
 
 ### 方式1：自动保存和复用（推荐）
 
-使用密码登录时，Cookie 会自动保存到 `.showdoc_cookies.json`，下次运行时自动复用：
+使用密码登录时，Cookie 会自动保存到 `output/.showdoc_cookies.json`，下次运行时自动复用：
 
 ```python
 # 第一次运行 - 使用密码登录

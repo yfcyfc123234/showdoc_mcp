@@ -43,7 +43,7 @@ from .models import (
 class ShowDocClient:
     """ShowDoc 客户端类，用于获取接口文档数据"""
     
-    def __init__(self, base_url: str, cookie: Optional[str] = None, password: Optional[str] = "123456"):
+    def __init__(self, base_url: str, cookie: Optional[str] = None, password: Optional[str] = "123456", verify_ssl: bool = False):
         """
         初始化 ShowDoc 客户端
         
@@ -51,17 +51,26 @@ class ShowDocClient:
             base_url: ShowDoc 文档页面 URL，例如 "https://doc.cqfengli.com/web/#/90/"
             cookie: 认证 Cookie，例如 "think_language=zh-CN; PHPSESSID=xxx"（可选）
             password: 项目访问密码，如果提供且 cookie 为空，将自动进行密码登录（默认: "123456"）
+            verify_ssl: 是否验证 SSL 证书（默认: False，因为很多服务器使用自签名证书）
         """
         # 解析 URL，提取服务器地址和 item_id
         url_info = parse_showdoc_url(base_url)
         self.server_base = url_info["server_base"]
         self.item_id = url_info["item_id"]
         
+        # 保存 password 以便后续自动重新登录
+        self._password = password
+        
         # 初始化 Cookie 管理器
         self.cookie_manager = CookieManager()
         
         # 初始化 HTTP session
         self.session = requests.Session()
+        
+        # 禁用 SSL 警告（如果禁用了 SSL 验证）
+        if not verify_ssl:
+            import urllib3
+            urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
         
         # 配置重试策略
         retry_strategy = Retry(
@@ -73,11 +82,20 @@ class ShowDocClient:
         self.session.mount("http://", adapter)
         self.session.mount("https://", adapter)
         
+        # 保存 SSL 验证设置
+        self.verify_ssl = verify_ssl
+        
         # 设置默认请求头
         self.session.headers.update({
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-            "Accept": "application/json, text/html, */*",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36",
+            "Accept": "application/json, text/plain, */*",
             "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+            "Accept-Encoding": "gzip, deflate, br",
+            "DNT": "1",
+            "Connection": "keep-alive",
+            "Sec-Fetch-Site": "same-origin",
+            "Sec-Fetch-Mode": "cors",
+            "Sec-Fetch-Dest": "empty",
         })
         
         # Cookie 优先级：参数传入 > 保存的 Cookie > 密码登录
@@ -125,7 +143,8 @@ class ShowDocClient:
         method: str,
         url: str,
         data: Optional[Dict[str, Any]] = None,
-        timeout: int = 30
+        timeout: int = 30,
+        verify: Optional[bool] = None
     ) -> requests.Response:
         """
         发送 HTTP 请求（内部方法）
@@ -144,14 +163,19 @@ class ShowDocClient:
             ShowDocAuthError: 认证失败
         """
         try:
+            # 如果没有指定 verify，使用实例的默认设置
+            if verify is None:
+                verify = self.verify_ssl
+            
             if method.upper() == "GET":
-                response = self.session.get(url, timeout=timeout)
+                response = self.session.get(url, timeout=timeout, verify=verify)
             elif method.upper() == "POST":
                 response = self.session.post(
                     url,
                     data=data,
                     headers={"Content-Type": "application/x-www-form-urlencoded"},
-                    timeout=timeout
+                    timeout=timeout,
+                    verify=verify
                 )
             else:
                 raise ShowDocNetworkError(f"不支持的 HTTP 方法: {method}")
@@ -392,7 +416,7 @@ class ShowDocClient:
         if not image_bytes:
             return None
         try:
-            debug_dir = Path(os.environ.get("SHOWDOC_CAPTCHA_DEBUG_DIR", "captcha_debug"))
+            debug_dir = Path(os.environ.get("SHOWDOC_CAPTCHA_DEBUG_DIR", "output/captcha_debug"))
             debug_dir.mkdir(parents=True, exist_ok=True)
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
             filename = f"captcha_{timestamp}_attempt{attempt}_{reason}"
@@ -450,8 +474,37 @@ class ShowDocClient:
         
         # 检查错误码
         if result.get("error_code") != 0:
-            error_msg = result.get("error_msg", "未知错误")
-            raise ShowDocError(f"获取目录结构失败: {error_msg}")
+            error_code = result.get("error_code", "N/A")
+            error_msg = result.get("error_msg") or result.get("error_message") or "未知错误"
+            
+            # 如果错误码是密码相关（10307 表示密码错误，可能是 Cookie 失效）
+            if error_code in (10307, 10303, 10201, 10202, 10203, 10204, 10205):
+                # Cookie 可能已失效，删除缓存的 Cookie
+                print(f"[{datetime.now().strftime('%H:%M:%S')}] Cookie 可能已失效（error_code={error_code}），删除缓存...")
+                self.cookie_manager.delete_cookie(self.server_base, self.item_id)
+                # 如果提供了 password，可以尝试重新登录
+                if hasattr(self, '_password') and self._password:
+                    print(f"[{datetime.now().strftime('%H:%M:%S')}] 尝试使用密码重新登录...")
+                    try:
+                        self.authenticate_with_password(self._password)
+                        # 重新获取 Cookie
+                        cookies_dict = self.session.cookies.get_dict()
+                        cookie_parts = []
+                        for key, value in cookies_dict.items():
+                            cookie_parts.append(f"{key}={value}")
+                        if cookie_parts:
+                            self.cookie = "; ".join(cookie_parts)
+                            self.session.headers["Cookie"] = self.cookie
+                            self.cookie_manager.save_cookie(self.server_base, self.item_id, self.cookie)
+                        # 重试请求
+                        response = self._make_request("POST", url, data=data)
+                        result = self._parse_json_response(response)
+                        if result.get("error_code") == 0:
+                            return result.get("data", {})
+                    except Exception as e:
+                        print(f"[{datetime.now().strftime('%H:%M:%S')}] 重新登录失败: {e}")
+            
+            raise ShowDocError(f"获取目录结构失败: error_code={error_code}, error_msg={error_msg}")
         
         return result.get("data", {})
     
@@ -496,27 +549,77 @@ class ShowDocClient:
             ShowDocNotFoundError: 页面不存在
         """
         url = f"{self.server_base}/server/index.php?s=/api/page/info"
-        data = {"page_id": page_id}
         
-        response = self._make_request("POST", url, data=data)
+        # 构建请求数据，包含 page_id 和项目密码（如果提供了密码）
+        data = {"page_id": page_id}
+        if self._password:
+            data["_item_pwd"] = self._password
+        
+        # 设置 Referer 和 Origin 头部，模拟浏览器请求
+        # 注意：根据实际请求，Origin 应该指向主域名（如 https://www.showdoc.com.cn）
+        # Referer 也应该指向主域名
+        original_headers = self.session.headers.copy()
+        
+        # 从 server_base 提取主域名（处理 CDN 域名情况）
+        from urllib.parse import urlparse
+        parsed = urlparse(self.server_base)
+        main_domain = f"{parsed.scheme}://{parsed.netloc}"
+        # 如果是 CDN 域名，尝试提取主域名
+        if "cdn" in parsed.netloc or "dfyun" in parsed.netloc:
+            # 尝试从 server_base 推断主域名，或者使用常见的 showdoc.com.cn
+            main_domain = "https://www.showdoc.com.cn"
+        
+        self.session.headers["Referer"] = f"{main_domain}/"
+        self.session.headers["Origin"] = main_domain
+        self.session.headers["Sec-Fetch-Site"] = "cross-site"  # 跨站请求
+        
+        try:
+            response = self._make_request("POST", url, data=data)
+        finally:
+            # 恢复原始请求头
+            self.session.headers = original_headers
         result = self._parse_json_response(response)
         
         # 检查错误码
         if result.get("error_code") != 0:
-            error_msg = result.get("error_msg", "页面不存在")
-            raise ShowDocNotFoundError(f"获取页面信息失败: {error_msg}")
+            error_code = result.get("error_code", "N/A")
+            error_msg = result.get("error_msg") or result.get("error_message") or "页面不存在"
+            # 输出更详细的错误信息用于调试
+            print(f"[DEBUG] 获取页面信息失败:")
+            print(f"  - page_id: {page_id}")
+            print(f"  - error_code: {error_code}")
+            print(f"  - error_msg: {error_msg}")
+            print(f"  - 完整响应: {json.dumps(result, ensure_ascii=False, indent=2)[:500]}")
+            raise ShowDocNotFoundError(f"获取页面信息失败: error_code={error_code}, error_msg={error_msg}")
         
         page_data = result.get("data", {})
         
-        # 处理 page_content（HTML 实体解码）
+        # 处理 page_content
         if "page_content" in page_data:
             encoded_content = page_data["page_content"]
             try:
+                # 尝试解析为 JSON（API 类型页面）
                 decoded_content = decode_page_content(encoded_content)
                 page_data["decoded_content"] = decoded_content
-            except ShowDocParseError:
-                # 解码失败时保留原始数据
-                pass
+            except (ShowDocParseError, json.JSONDecodeError, ValueError):
+                # 如果不是 JSON 格式（可能是 Markdown 文本），直接保存原始内容
+                # 这种情况通常是普通文档页面，不是 API 类型
+                import html
+                try:
+                    # 尝试 HTML 实体解码
+                    decoded_text = html.unescape(encoded_content)
+                    page_data["decoded_content"] = {
+                        "type": "markdown",
+                        "content": decoded_text,
+                        "raw": encoded_content
+                    }
+                except Exception:
+                    # 如果解码也失败，保存原始内容
+                    page_data["decoded_content"] = {
+                        "type": "text",
+                        "content": encoded_content,
+                        "raw": encoded_content
+                    }
         
         return page_data
     
@@ -622,6 +725,38 @@ class ShowDocClient:
             children=children
         )
     
+    def _find_category_by_page_id(
+        self,
+        categories: List[Dict[str, Any]],
+        page_id: str
+    ) -> Optional[Dict[str, Any]]:
+        """
+        根据 page_id 查找包含该页面的分类节点
+        
+        Args:
+            categories: 分类列表
+            page_id: 页面 ID
+        
+        Returns:
+            找到的分类节点，未找到返回 None
+        """
+        def search_recursive(cat_list: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+            for cat in cat_list:
+                # 检查当前分类的页面
+                for page in cat.get("pages", []):
+                    if str(page.get("page_id", "")) == str(page_id):
+                        return cat
+                
+                # 递归搜索子分类
+                sub_catalogs = cat.get("catalogs", [])
+                if sub_catalogs:
+                    result = search_recursive(sub_catalogs)
+                    if result:
+                        return result
+            return None
+        
+        return search_recursive(categories)
+    
     def _filter_categories_recursive(
         self,
         categories: List[Dict[str, Any]],
@@ -660,7 +795,42 @@ class ShowDocClient:
         
         return search_and_collect(categories)
     
-    def get_all_apis(self, node_name: Optional[str] = None) -> ApiTree:
+    def _simplify_category_tree(self, catalog: Dict[str, Any], item_id: str) -> Dict[str, Any]:
+        """
+        将菜单节点精简为轻量结构（不含页面详情），并添加跳转链接。
+        """
+        simplified_pages = []
+        for page in catalog.get("pages", []):
+            page_id = str(page.get("page_id", ""))
+            page_url = f"{self.server_base}/web/#/{item_id}/{page_id}" if page_id else None
+            simplified_pages.append(
+                {
+                    "page_id": page_id,
+                    "page_title": page.get("page_title", ""),
+                    "page_url": page_url,
+                }
+            )
+
+        children = [
+            self._simplify_category_tree(child, item_id)
+            for child in catalog.get("catalogs", [])
+        ]
+
+        cat_id = str(catalog.get("cat_id", ""))
+        cat_url = f"{self.server_base}/web/#/{item_id}/?cat_id={cat_id}" if cat_id != "0" else None
+
+        return {
+            "cat_id": cat_id,
+            "cat_name": catalog.get("cat_name", ""),
+            "cat_url": cat_url,
+            "parent_cat_id": str(catalog.get("parent_cat_id", "")),
+            "level": int(catalog.get("level", 0)),
+            "s_number": str(catalog.get("s_number", "")),
+            "pages": simplified_pages,
+            "children": children,
+        }
+
+    def get_all_apis(self, node_name: Optional[str] = None, page_id: Optional[str] = None) -> ApiTree:
         """
         获取所有接口数据（主入口方法）
         
@@ -668,6 +838,7 @@ class ShowDocClient:
             node_name: 节点名称，例如 "订单"
                        - None/"全部"/"all": 获取所有节点
                        - 具体名称: 只获取该节点及其子节点的数据
+            page_id: 页面 ID（可选），如果提供则根据 page_id 查找对应的分类节点
         
         Returns:
             ApiTree 对象，包含完整的接口树结构
@@ -715,7 +886,14 @@ class ShowDocClient:
             all_catalogs.insert(0, root_category)
         
         # 步骤4: 筛选节点
-        if node_name and node_name.strip().lower() not in ("全部", "all"):
+        if page_id:
+            # 如果提供了 page_id，根据 page_id 查找对应的分类
+            target_cat = self._find_category_by_page_id(all_catalogs, page_id)
+            if target_cat:
+                filtered_catalogs = [target_cat]
+            else:
+                raise ShowDocNotFoundError(f"未找到包含页面 ID '{page_id}' 的节点")
+        elif node_name and node_name.strip().lower() not in ("全部", "all"):
             filtered_catalogs = self._filter_categories_recursive(
                 all_catalogs, node_name.strip()
             )
@@ -739,4 +917,64 @@ class ShowDocClient:
         )
         
         return api_tree
+
+    def get_node_tree(self, node_name: Optional[str] = None, page_id: Optional[str] = None) -> Dict[str, Any]:
+        """
+        获取轻量级节点树，只保留分类与页面基本信息。
+        
+        Args:
+            node_name: 节点名称（分类名称）
+            page_id: 页面 ID，如果提供则根据 page_id 查找对应的分类节点
+        """
+        try:
+            self.fetch_homepage()
+        except Exception:
+            pass
+
+        item_data = self.fetch_item_info()
+        item_info = {
+            "item_id": str(item_data.get("item_id", self.item_id)),
+            "item_name": item_data.get("item_name", ""),
+            "item_domain": item_data.get("item_domain", ""),
+        }
+
+        menu = item_data.get("menu", {})
+        all_catalogs = build_category_tree(menu, item_info["item_id"])
+
+        root_pages_data = menu.get("pages", [])
+        if root_pages_data:
+            root_category = {
+                "cat_id": "0",
+                "cat_name": "根目录",
+                "parent_cat_id": "0",
+                "level": 0,
+                "pages": root_pages_data,
+                "catalogs": [],
+            }
+            all_catalogs.insert(0, root_category)
+
+        if page_id:
+            # 如果提供了 page_id，根据 page_id 查找对应的分类
+            target_cat = self._find_category_by_page_id(all_catalogs, page_id)
+            if target_cat:
+                filtered_catalogs = [target_cat]
+            else:
+                raise ShowDocNotFoundError(f"未找到包含页面 ID '{page_id}' 的节点")
+        elif node_name and node_name.strip().lower() not in ("全部", "all"):
+            filtered_catalogs = self._filter_categories_recursive(
+                all_catalogs, node_name.strip()
+            )
+            if not filtered_catalogs:
+                raise ShowDocNotFoundError(f"未找到名称为 '{node_name}' 的节点")
+        else:
+            filtered_catalogs = all_catalogs
+
+        simplified_categories = [
+            self._simplify_category_tree(cat, item_info["item_id"]) for cat in filtered_catalogs
+        ]
+
+        return {
+            "item_info": item_info,
+            "categories": simplified_categories,
+        }
 

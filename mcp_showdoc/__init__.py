@@ -9,16 +9,22 @@ MCP 集成入口包：ShowDoc 抓取 + Android 代码生成
 
 from .server import (
     showdoc_fetch_apis,
+    showdoc_fetch_node_tree,
     android_generate_from_showdoc,
     android_open_output_folder,
     showdoc_fetch_and_generate,
+    get_node_detail_info,
+    get_node_cookie,
 )
 
 __all__ = [
     "showdoc_fetch_apis",
+    "showdoc_fetch_node_tree",
     "android_generate_from_showdoc",
     "android_open_output_folder",
     "showdoc_fetch_and_generate",
+    "get_node_detail_info",
+    "get_node_cookie",
 ]
 
 

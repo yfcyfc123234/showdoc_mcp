@@ -26,8 +26,8 @@ class CookieManager:
             cookie_file: Cookie 文件路径，如果为 None 则使用默认路径
         """
         if cookie_file is None:
-            # 默认保存在项目目录下的 .showdoc_cookies.json
-            cookie_file = Path.cwd() / ".showdoc_cookies.json"
+            # 默认保存在 output/.showdoc_cookies.json（统一输出目录）
+            cookie_file = Path.cwd() / "output" / ".showdoc_cookies.json"
         self.cookie_file = Path(cookie_file)
         self.cookies_data: Dict[str, Dict[str, Dict[str, Any]]] = {}
         self._load_cookies()

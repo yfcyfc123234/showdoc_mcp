@@ -97,7 +97,7 @@ api_tree = client.get_all_apis("订单")
 - `password`: 项目访问密码（可选，默认: "123456"），如果提供且 cookie 为空，将自动进行验证码登录
 
 **Cookie 自动管理**：
-- 登录成功后的 Cookie 会自动保存到本地文件 `.showdoc_cookies.json`
+- 登录成功后的 Cookie 会自动保存到本地文件 `output/.showdoc_cookies.json`
 - 下次运行时，如果 Cookie 有效且未过期，会自动复用，无需重新登录
 - Cookie 优先级：传入的 Cookie > 保存的 Cookie > 密码登录
 - Cookie 默认过期时间：24 小时
@@ -152,7 +152,7 @@ except Exception as e:
 ## 验证码调试
 
 - 使用 ddddocr 进行验证码识别，支持多种验证码类型
-- 登录失败（验证码错误或识别异常）时，会自动重试并将失败的验证码图片保存到 `captcha_debug/` 目录，便于人工排查
+- 登录失败（验证码错误或识别异常）时，会自动重试并将失败的验证码图片保存到 `output/captcha_debug/` 目录，便于人工排查
 - 每次运行程序时会自动清理旧的调试目录，只保留当前会话的调试信息
 - 可通过环境变量修改保存目录：
   ```bash

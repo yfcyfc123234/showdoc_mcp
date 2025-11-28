@@ -33,7 +33,7 @@ from core import ShowDocClient, ShowDocNotFoundError, ShowDocAuthError
 
 
 # ========== 配置参数（请修改为你的实际参数）==========
-BASE_URL = "https://doc.cqfengli.com/web/#/item/password/76?page_id=0&redirect=%2F76"
+BASE_URL = "https://www.showdoc.com.cn/2598847043995765/11559023628754747"
 COOKIE = None  # 可选，如果提供则使用 Cookie 认证
 PASSWORD = "123456"  # 默认密码，如果未提供 COOKIE 则使用密码自动登录
 

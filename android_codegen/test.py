@@ -9,6 +9,7 @@ Android 代码生成器测试脚本
 import sys
 import os
 import shutil
+import json
 from pathlib import Path
 
 # 设置控制台编码为 UTF-8（Windows）
@@ -34,7 +35,7 @@ from android_codegen import AndroidCodeGenerator
 
 
 # ========== 配置参数（请修改为你的实际参数）==========
-BASE_URL = "https://doc.cqfengli.com/web/#/90"
+BASE_URL = "https://www.showdoc.com.cn/2598847052437483/0"
 COOKIE = None  # 可选，如果提供则使用 Cookie 认证
 PASSWORD = "123456"  # 默认密码，如果未提供 COOKIE 则使用密码自动登录
 
@@ -43,7 +44,7 @@ NODE_NAME = None
 
 # Android 代码生成配置
 BASE_PACKAGE = "com.example.api"  # Android 包名
-OUTPUT_DIR = "android_output"     # 输出目录
+OUTPUT_DIR = "output/android_output"     # 输出目录（默认统一到 output 文件夹）
 
 # 输出目录配置
 # None: 使用默认目录（android_output）
@@ -182,6 +183,26 @@ def main():
             print("  提示: 这可能需要一些时间，请稍候...")
         api_tree = client.get_all_apis(node_name=NODE_NAME)
         print("[OK] 成功获取数据")
+        
+        # 自动保存接口数据快照
+        try:
+            from datetime import datetime
+            snapshot_dir = Path("output/showdoc_snapshots")
+            snapshot_dir.mkdir(parents=True, exist_ok=True)
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            safe_name = "".join(c for c in api_tree.item_info.item_name if c.isalnum() or c in (" ", "-", "_")).strip()[:30]
+            if safe_name:
+                snapshot_file = snapshot_dir / f"{api_tree.item_info.item_id}_{safe_name}_{timestamp}.json"
+            else:
+                snapshot_file = snapshot_dir / f"{api_tree.item_info.item_id}_{timestamp}.json"
+            snapshot_file.write_text(
+                json.dumps(api_tree.to_dict(), ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+            print(f"  - 接口数据已保存: {snapshot_file}")
+        except Exception as e:
+            print(f"  - 警告: 保存接口数据快照失败: {e}")
+        
         print()
         
         # 步骤3: 显示项目信息

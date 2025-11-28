@@ -2,6 +2,8 @@
 
 从 ShowDoc 自动获取 API 文档数据，并生成 Android 代码的 Python 工具集。
 
+> 本工具链适用于 **任何标准部署的 ShowDoc 站点**，只要提供正确的 `base_url` 与对应站点的 Cookie 或访问密码即可完成抓取与生成。
+
 ## 项目结构
 
 ```
@@ -9,7 +11,7 @@ fengli/
 ├── core/                   # 核心模块：ShowDoc 客户端、验证码识别
 ├── android_codegen/        # Android 代码生成工具（Entity、Repository、Retrofit）
 ├── api_docs/              # API 文档示例和预研文档
-├── mcp_showdoc_android/   # MCP 服务器实现
+├── mcp_showdoc/           # MCP 服务器实现
 └── pyproject.toml         # 项目配置
 ```
 
@@ -22,7 +24,7 @@ fengli/
 - 验证码识别（基于 ddddocr，识别准确率高）
 - 结构化数据解析（分类、页面、API 定义）
 - 支持按节点筛选数据
-- 支持多种 URL 格式（标准格式和登录页面格式）
+- 支持多种 URL 格式（标准、登录页、`https://www.showdoc.com.cn/{item}/{page}` 等共享链接）
 
 ### 2. Android 代码生成 (`android_codegen/`)
 
@@ -31,7 +33,7 @@ fengli/
 - Retrofit 接口生成
 - OkHttp 配置生成
 
-### 3. MCP 服务器 (`mcp_showdoc_android/`)
+### 3. MCP 服务器 (`mcp_showdoc/`)
 
 - 提供 MCP 协议接口
 - 支持通过 MCP 调用代码生成功能
@@ -82,7 +84,7 @@ python -m core.test
 
 - **core/**: ShowDoc 客户端核心实现，详见 [core/README.md](core/README.md)
 - **android_codegen/**: Android 代码生成工具，详见 [android_codegen/README.md](android_codegen/README.md)
-- **mcp_showdoc_android/**: MCP 服务器，详见 [mcp_showdoc_android/README.md](mcp_showdoc_android/README.md)
+- **mcp_showdoc/**: MCP 服务器，详见 [mcp_showdoc/README.md](mcp_showdoc/README.md)
 - **api_docs/**: API 文档示例，详见 [api_docs/README.md](api_docs/README.md)
 
 ## 依赖要求

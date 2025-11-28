@@ -1,3 +1,0 @@
-android_codegen
-core
-mcp_showdoc_android

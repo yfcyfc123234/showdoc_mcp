@@ -3,9 +3,9 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "showdoc-android-mcp"
-version = "0.1.0"
-description = "ShowDoc -> Android codegen MCP server (core + android_codegen + mcp_showdoc_android)."
+name = "showdoc-mcp"
+version = "1.0.0"
+description = "Universal ShowDoc fetch + Android codegen MCP server."
 readme = "README.md"
 requires-python = ">=3.9"
 authors = [
@@ -25,9 +25,9 @@ dev = [
 ]
 
 [project.scripts]
-showdoc-android-mcp = "mcp_showdoc_android.mcp_server:main"
+showdoc-mcp = "mcp_showdoc.mcp_server:main"
 
 [tool.setuptools]
-packages = ["core", "android_codegen", "mcp_showdoc_android"]
+packages = ["core", "android_codegen", "mcp_showdoc"]
 
 

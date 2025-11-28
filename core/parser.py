@@ -46,6 +46,7 @@ def parse_showdoc_url(url: str) -> Dict[str, str]:
         # 4. 路径参数：/web/90/
         
         item_id = None
+        extracted_page_id: Optional[str] = None
         
         # 尝试从哈希路径提取
         if parsed.fragment:
@@ -54,16 +55,23 @@ def parse_showdoc_url(url: str) -> Dict[str, str]:
             # - #/90/ 或 #/90 -> 90
             # - #/item/password/88 -> 88
             # - #/item/88 -> 88
+            # - #/94/4828 -> item_id=94, page_id=4828
             
             # 先尝试匹配路径中的数字（如 /item/password/88 或 /item/88）
             path_match = re.search(r'/(?:item|password)/(\d+)', fragment)
             if path_match:
                 item_id = path_match.group(1)
             else:
-                # 再尝试匹配开头的数字（如 /90/ 或 90）
-                match = re.search(r'^/?(\d+)', fragment)
-                if match:
-                    item_id = match.group(1)
+                # 尝试匹配 item_id/page_id 格式（如 /94/4828）
+                double_match = re.search(r'^/?(\d+)/(\d+)', fragment)
+                if double_match:
+                    item_id = double_match.group(1)
+                    extracted_page_id = double_match.group(2)
+                else:
+                    # 再尝试匹配开头的数字（如 /90/ 或 90）
+                    match = re.search(r'^/?(\d+)', fragment)
+                    if match:
+                        item_id = match.group(1)
         
         # 尝试从查询参数提取
         if not item_id:
@@ -71,6 +79,15 @@ def parse_showdoc_url(url: str) -> Dict[str, str]:
             if 'item_id' in query_params:
                 item_id = query_params['item_id'][0]
         
+        # 尝试从路径段提取（兼容 showdoc.com.cn 的分享链接）
+        if not item_id:
+            path_segments = [seg for seg in parsed.path.split("/") if seg]
+            if path_segments and path_segments[0].isdigit():
+                item_id = path_segments[0]
+                # 第二段如果是纯数字，视为 page_id
+                if len(path_segments) > 1 and path_segments[1].isdigit():
+                    extracted_page_id = path_segments[1]
+
         # 尝试从路径中提取
         if not item_id:
             path_match = re.search(r'/(\d+)/?$', parsed.path)
@@ -81,7 +98,7 @@ def parse_showdoc_url(url: str) -> Dict[str, str]:
             raise ShowDocParseError(f"无法从 URL 中提取 item_id: {url}")
         
         # 提取 page_id（可能在查询参数或 redirect 参数中）
-        page_id = None
+        page_id = extracted_page_id
         page_id_match = re.search(r'page_id=(\d+)', url)
         if page_id_match:
             page_id = page_id_match.group(1)

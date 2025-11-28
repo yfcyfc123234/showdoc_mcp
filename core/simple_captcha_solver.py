@@ -80,7 +80,7 @@ class SimpleCaptchaSolver:
         Args:
             whitelist: 允许的字符集合，用于限制识别范围
             min_confidence: 最小置信度阈值（保留接口兼容性）
-            save_variants: 是否保存预处理变体图片用于调试
+            save_variants: 是否保存预处理变体图片用于调试（默认 False，避免创建 details 目录）
             show_ad: 是否显示 ddddocr 的广告信息（默认 False）
         """
         self.whitelist = whitelist
@@ -105,7 +105,7 @@ class SimpleCaptchaSolver:
     def _clean_debug_directory(self) -> None:
         """清理调试目录，删除所有旧文件（每次运行都清空）"""
         # 获取调试目录路径（支持环境变量自定义）
-        debug_dir = Path(os.environ.get("SHOWDOC_CAPTCHA_DEBUG_DIR", "captcha_debug"))
+        debug_dir = Path(os.environ.get("SHOWDOC_CAPTCHA_DEBUG_DIR", "output/captcha_debug"))
         
         if debug_dir.exists() and debug_dir.is_dir():
             try:
@@ -316,7 +316,7 @@ class SimpleCaptchaSolver:
         return variants
 
     def _start_debug_session(self, original_img: np.ndarray) -> Path:
-        root = Path("captcha_debug") / "details"
+        root = Path(os.environ.get("SHOWDOC_CAPTCHA_DEBUG_DIR", "output/captcha_debug"))
         root.mkdir(parents=True, exist_ok=True)
         session_dir = root / f"captcha_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}"
         session_dir.mkdir(parents=True, exist_ok=True)
