@@ -225,25 +225,16 @@ def showdoc_fetch_node_tree(
     仅抓取节点树状结构（不含 API 详情），每个节点包含跳转链接。
     
     Args:
-        base_url: ShowDoc 项目 URL，如果包含页面 ID（如 /94/4828），且 node_name 为空，则自动筛选该页面所在的节点
+        base_url: ShowDoc 项目 URL
         cookie: 认证 Cookie（可选）
         password: 项目访问密码（可选）
         node_name: 可选节点名称（分类），None/"全部"/"all" 表示全量
     """
     try:
-        # 从 base_url 中提取 page_id（如果 URL 包含页面 ID）
-        from core.parser import parse_showdoc_url
-        url_info = parse_showdoc_url(base_url)
-        extracted_page_id = url_info.get("page_id")
-        
-        # 如果 base_url 包含 page_id 且没有指定 node_name，则使用 page_id 作为节点筛选
-        actual_node_name = node_name
-        actual_page_id = None
-        if extracted_page_id and not node_name:
-            actual_page_id = extracted_page_id
-        
         client = ShowDocClient(base_url, cookie=cookie, password=password)
-        node_tree = client.get_node_tree(node_name=actual_node_name, page_id=actual_page_id)
+        # 直接使用 node_name，不自动根据 page_id 筛选
+        # 如果用户需要根据 page_id 筛选，应该明确指定 node_name
+        node_tree = client.get_node_tree(node_name=node_name, page_id=None)
         return {
             "ok": True,
             "error": None,
