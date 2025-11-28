@@ -252,6 +252,14 @@ async def fetch_node_cookie(
 
 def main() -> None:
     """MCP stdio 入口。"""
+    # 检查是否有测试参数
+    if len(sys.argv) > 1 and sys.argv[1] == "--test":
+        print("MCP 服务器测试模式：服务器已就绪，等待 MCP 客户端连接...", file=sys.stderr)
+        print("提示：这是正常的，MCP 服务器通过 stdin/stdout 与客户端通信。", file=sys.stderr)
+        print("要使用服务器，请在 Cursor 中配置 MCP 服务器。", file=sys.stderr)
+        print("按 Ctrl+C 退出测试模式。", file=sys.stderr)
+    
+    # 启动 MCP 服务器（会阻塞等待 stdin 输入）
     app.run()
 
 
