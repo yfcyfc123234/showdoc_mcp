@@ -7,7 +7,7 @@
 ## 项目结构
 
 ```
-fengli/
+showdoc/
 ├── core/                   # 核心模块：ShowDoc 客户端、验证码识别
 ├── android_codegen/        # Android 代码生成工具（Entity、Repository、Retrofit）
 ├── api_docs/              # API 文档示例和预研文档

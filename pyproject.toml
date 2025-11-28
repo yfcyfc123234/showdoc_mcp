@@ -9,7 +9,7 @@ description = "Universal ShowDoc fetch + Android codegen MCP server."
 readme = "README.md"
 requires-python = ">=3.9"
 authors = [
-  { name = "fengli", email = "dev@example.com" }
+  { name = "showdoc", email = "dev@example.com" }
 ]
 dependencies = [
   "requests>=2.28.0",
