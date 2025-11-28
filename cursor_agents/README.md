@@ -49,6 +49,7 @@ client = CursorAgentsClient(api_key="temporary_key")
 ### 用户信息自动获取
 
 首次设置 API Key 时，会自动调用 `/v0/me` API 获取以下信息：
+
 - `apiKeyName`: API Key 名称
 - `createdAt`: 创建时间
 - `userEmail`: 用户邮箱
@@ -148,4 +149,3 @@ except RuntimeError as e:
 ## 参考文档
 
 - [Cursor Cloud Agents API 文档](https://cursor.com/cn/docs/cloud-agent/api/endpoints)
-
