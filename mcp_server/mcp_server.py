@@ -4,7 +4,7 @@ import asyncio
 import io
 import logging
 import sys
-from typing import Optional, Annotated
+from typing import Optional, Annotated, List, Dict, Any
 
 try:
     from mcp.server.fastmcp import FastMCP, ToolError
@@ -24,6 +24,7 @@ from .server import (
     get_node_detail_info,
     get_node_cookie,
 )
+from cursor_agents import CursorAgentsClient
 
 # 配置日志到 UTF-8 stderr，避免干扰 MCP 协议的 stdout
 utf8_stderr = io.TextIOWrapper(
@@ -38,7 +39,7 @@ logging.basicConfig(
     force=True,
 )
 
-app = FastMCP("showdoc-mcp")
+app = FastMCP("personal-mcp")
 
 
 @app.tool()
@@ -307,6 +308,242 @@ async def generate_flutter_from_showdoc(
         raise ToolError(result.get("error") or "生成失败")
 
     return result
+
+
+# ========== Cursor Cloud Agents API 工具 ==========
+
+@app.tool()
+async def set_cursor_api_key_tool(
+    api_key: Annotated[str, "Cursor API 密钥，从 https://cursor.com/settings 获取"],
+    fetch_user_info: Annotated[bool, "是否获取并缓存用户信息（默认 True，首次设置时建议为 True）"] = True,
+) -> dict:
+    """
+    设置并缓存 Cursor Cloud Agents API 密钥。
+    
+    首次设置时会自动调用 /v0/me API 获取用户信息（API Key 名称、创建时间、用户邮箱等），
+    并缓存到 output/.cursor_api_key_info.json 供以后使用。
+    
+    必需参数：
+    - api_key: 从 Cursor 仪表盘 (https://cursor.com/settings) 获取的 API 密钥
+    
+    可选参数：
+    - fetch_user_info: 是否获取用户信息（默认 True）
+    
+    设置后，后续调用其他 Cursor Agents 工具时，如果不提供 api_key 参数，将自动使用缓存的密钥。
+    """
+    try:
+        client = CursorAgentsClient()
+        result = await asyncio.to_thread(client.set_api_key, api_key, fetch_user_info)
+        return result
+    except Exception as e:
+        raise ToolError(f"设置 API Key 失败: {e}")
+
+
+@app.tool()
+async def list_cursor_agents_tool(
+    limit: Annotated[int, "返回的云端代理数量（默认 20，最大 100）"] = 20,
+    cursor: Annotated[Optional[str], "分页游标"] = None,
+    api_key: Annotated[Optional[str], "可选，临时指定 API Key（不缓存）"] = None,
+) -> dict:
+    """
+    列出当前已认证用户的所有云端代理。
+    
+    可选参数：
+    - limit: 返回的云端代理数量（默认 20，最大 100）
+    - cursor: 上一页响应中的分页游标
+    - api_key: 临时指定 API Key（如果提供，不会缓存；如果不提供，使用缓存的密钥）
+    """
+    try:
+        client = CursorAgentsClient(api_key=api_key)
+        result = await asyncio.to_thread(client.list_agents, limit=limit, cursor=cursor)
+        return {
+            "ok": True,
+            **result
+        }
+    except Exception as e:
+        raise ToolError(f"列出代理失败: {e}")
+
+
+@app.tool()
+async def get_cursor_agent_status_tool(
+    agent_id: Annotated[str, "云端 Agent 的唯一标识符（例如：bc_abc123）"],
+    api_key: Annotated[Optional[str], "可选，临时指定 API Key（不缓存）"] = None,
+) -> dict:
+    """
+    获取云端 Agent 的当前状态和结果。
+    
+    必需参数：
+    - agent_id: 云端 Agent 的唯一标识符（例如：bc_abc123）
+    
+    可选参数：
+    - api_key: 临时指定 API Key（如果提供，不会缓存；如果不提供，使用缓存的密钥）
+    """
+    try:
+        client = CursorAgentsClient(api_key=api_key)
+        result = await asyncio.to_thread(client.get_agent_status, agent_id=agent_id)
+        return {
+            "ok": True,
+            **result
+        }
+    except Exception as e:
+        raise ToolError(f"获取 Agent 状态失败: {e}")
+
+
+@app.tool()
+async def get_cursor_agent_conversation_tool(
+    agent_id: Annotated[str, "云端 Agent 的唯一标识符（例如：bc_abc123）"],
+    api_key: Annotated[Optional[str], "可选，临时指定 API Key（不缓存）"] = None,
+) -> dict:
+    """
+    获取云端 Agent 的会话历史，包括所有用户提问与助手回复。
+    
+    注意：如果云端 Agent 已被删除，将无法访问该会话。
+    
+    必需参数：
+    - agent_id: 云端 Agent 的唯一标识符（例如：bc_abc123）
+    
+    可选参数：
+    - api_key: 临时指定 API Key（如果提供，不会缓存；如果不提供，使用缓存的密钥）
+    """
+    try:
+        client = CursorAgentsClient(api_key=api_key)
+        result = await asyncio.to_thread(client.get_agent_conversation, agent_id=agent_id)
+        return {
+            "ok": True,
+            **result
+        }
+    except Exception as e:
+        raise ToolError(f"获取 Agent 会话失败: {e}")
+
+
+@app.tool()
+async def add_cursor_agent_followup_tool(
+    agent_id: Annotated[str, "云代理的唯一标识符（例如：bc_abc123）"],
+    text: Annotated[str, "给代理的后续指令文本"],
+    images: Annotated[Optional[List[Dict[str, Any]]], "可选，包含 base64 数据与尺寸的图片对象数组（最多 5 个）"] = None,
+    api_key: Annotated[Optional[str], "可选，临时指定 API Key（不缓存）"] = None,
+) -> dict:
+    """
+    为现有云代理添加后续指令。
+    
+    必需参数：
+    - agent_id: 云代理的唯一标识符（例如：bc_abc123）
+    - text: 给代理的后续指令文本
+    
+    可选参数：
+    - images: 图片对象数组（最多 5 个），每个对象应包含：
+      - data: base64 编码的图片数据
+      - dimension: 包含 width 和 height 的字典
+    - api_key: 临时指定 API Key（如果提供，不会缓存；如果不提供，使用缓存的密钥）
+    """
+    try:
+        client = CursorAgentsClient(api_key=api_key)
+        result = await asyncio.to_thread(
+            client.add_followup,
+            agent_id=agent_id,
+            text=text,
+            images=images
+        )
+        return {
+            "ok": True,
+            **result
+        }
+    except Exception as e:
+        raise ToolError(f"添加跟进失败: {e}")
+
+
+@app.tool()
+async def delete_cursor_agent_tool(
+    agent_id: Annotated[str, "云代理的唯一标识符（例如：bc_abc123）"],
+    api_key: Annotated[Optional[str], "可选，临时指定 API Key（不缓存）"] = None,
+) -> dict:
+    """
+    删除云代理。此操作永久生效且不可撤销。
+    
+    必需参数：
+    - agent_id: 云代理的唯一标识符（例如：bc_abc123）
+    
+    可选参数：
+    - api_key: 临时指定 API Key（如果提供，不会缓存；如果不提供，使用缓存的密钥）
+    """
+    try:
+        client = CursorAgentsClient(api_key=api_key)
+        result = await asyncio.to_thread(client.delete_agent, agent_id=agent_id)
+        return {
+            "ok": True,
+            **result
+        }
+    except Exception as e:
+        raise ToolError(f"删除代理失败: {e}")
+
+
+@app.tool()
+async def get_cursor_api_key_info_tool(
+    api_key: Annotated[Optional[str], "可选，临时指定 API Key（不缓存）"] = None,
+) -> dict:
+    """
+    获取用于身份验证的 API 密钥相关信息。
+    
+    可选参数：
+    - api_key: 临时指定 API Key（如果提供，不会缓存；如果不提供，使用缓存的密钥）
+    """
+    try:
+        client = CursorAgentsClient(api_key=api_key)
+        result = await asyncio.to_thread(client.get_api_key_info)
+        return {
+            "ok": True,
+            **result
+        }
+    except Exception as e:
+        raise ToolError(f"获取 API Key 信息失败: {e}")
+
+
+@app.tool()
+async def list_cursor_models_tool(
+    api_key: Annotated[Optional[str], "可选，临时指定 API Key（不缓存）"] = None,
+) -> dict:
+    """
+    获取云端代理的推荐模型列表。
+    
+    注意：建议提供"Auto"选项，当创建端点不提供模型名称时，会自动选择最合适的模型。
+    
+    可选参数：
+    - api_key: 临时指定 API Key（如果提供，不会缓存；如果不提供，使用缓存的密钥）
+    """
+    try:
+        client = CursorAgentsClient(api_key=api_key)
+        result = await asyncio.to_thread(client.list_models)
+        return {
+            "ok": True,
+            **result
+        }
+    except Exception as e:
+        raise ToolError(f"列出模型失败: {e}")
+
+
+@app.tool()
+async def list_cursor_repositories_tool(
+    api_key: Annotated[Optional[str], "可选，临时指定 API Key（不缓存）"] = None,
+) -> dict:
+    """
+    获取已认证用户可访问的 GitHub 仓库列表。
+    
+    警告：此端点有非常严格的速率限制（1 次/用户/分钟，30 次/用户/小时）。
+    对于可访问大量仓库的用户，此请求可能需要数十秒才会返回。
+    请确保在该信息不可用时进行优雅降级处理。
+    
+    可选参数：
+    - api_key: 临时指定 API Key（如果提供，不会缓存；如果不提供，使用缓存的密钥）
+    """
+    try:
+        client = CursorAgentsClient(api_key=api_key)
+        result = await asyncio.to_thread(client.list_repositories)
+        return {
+            "ok": True,
+            **result
+        }
+    except Exception as e:
+        raise ToolError(f"列出仓库失败: {e}")
 
 
 def main() -> None:

@@ -36,9 +36,9 @@ class DioConfigGenerator:
             生成的 Dart 代码字符串
         """
         lines = [
-            f"import 'package:dio/dio.dart';",
-            f"import 'package:dio/io.dart';",
-            f"import '{self.base_package}/services/api_service.dart';",
+            "import 'package:dio/dio.dart';",
+            "import 'package:dio/io.dart';",
+            "import '../services/api_service.dart';",
             "",
             "/// Dio 配置类",
             "/// 自动生成的配置文件",
@@ -78,8 +78,14 @@ class DioConfigGenerator:
             "  }",
             "",
             "  /// 创建 ApiService 实例",
+            "  /// 注意：需要实现 ApiService 抽象类",
+            "  /// 例如：",
+            "  /// class ApiServiceImpl extends ApiService {",
+            "  ///   ApiServiceImpl(super.dio);",
+            "  /// }",
             "  static ApiService createApiService() {",
-            "    return ApiServiceImpl(createDio());",
+            "    // TODO: 实现 ApiService 的具体类",
+            "    throw UnimplementedError('需要实现 ApiService 的具体类');",
             "  }",
             "",
             "}",

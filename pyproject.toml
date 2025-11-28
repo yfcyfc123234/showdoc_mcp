@@ -3,13 +3,13 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "showdoc-mcp"
+name = "personal-mcp"
 version = "1.0.0"
-description = "Universal ShowDoc fetch + Android codegen MCP server."
+description = "通用个人 MCP 服务器，整合 ShowDoc、Cursor Agents 等功能模块"
 readme = "README.md"
 requires-python = ">=3.9"
 authors = [
-  { name = "showdoc", email = "dev@example.com" }
+  { name = "personal", email = "dev@example.com" }
 ]
 dependencies = [
   "requests>=2.28.0",
@@ -25,9 +25,9 @@ dev = [
 ]
 
 [project.scripts]
-showdoc-mcp = "mcp_showdoc.mcp_server:main"
+personal-mcp = "mcp_server.mcp_server:main"
 
 [tool.setuptools]
-packages = ["core", "android_codegen", "mcp_showdoc"]
+packages = ["core", "android_codegen", "flutter_codegen", "mcp_server", "cursor_agents"]
 
 

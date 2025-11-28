@@ -97,7 +97,7 @@ def export_json(api_tree, export_path=None, auto_export=False):
     
     Args:
         api_tree: ApiTree 对象
-        export_path: 导出路径，None 表示使用默认文件名
+        export_path: 导出路径，None 表示使用默认文件名（保存到 output/ 目录）
         auto_export: 是否自动导出，True 表示不询问直接导出
     
     Returns:
@@ -105,7 +105,10 @@ def export_json(api_tree, export_path=None, auto_export=False):
     """
     # 确定文件名
     if export_path is None:
-        filename = f"showdoc_export_{api_tree.item_info.item_id}.json"
+        # 默认保存到 output/ 目录
+        output_dir = Path("output")
+        output_dir.mkdir(parents=True, exist_ok=True)
+        filename = str(output_dir / f"showdoc_export_{api_tree.item_info.item_id}.json")
     else:
         filename = export_path
         # 替换占位符

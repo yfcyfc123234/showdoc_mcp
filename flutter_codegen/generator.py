@@ -141,7 +141,12 @@ class FlutterCodeGenerator:
         file_contents["services/api_service.dart"] = (service_code, None)
         
         # 生成 Repository 类
-        repository_code = self.repository_gen.generate_repository(all_apis, available_entities=self.available_entities)
+        repository_code = self.repository_gen.generate_repository(
+            all_apis, 
+            available_entities=self.available_entities,
+            api_to_response_entity=self.api_to_response_entity,
+            api_to_request_entity=self.api_to_request_entity
+        )
         file_contents["repositories/api_repository.dart"] = (repository_code, None)
         
         # 生成通用的 ResponseData 基类（放在 models 根目录）

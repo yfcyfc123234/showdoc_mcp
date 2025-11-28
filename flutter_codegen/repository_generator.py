@@ -20,7 +20,13 @@ class FlutterRepositoryGenerator:
         """
         self.base_package = base_package
     
-    def generate_repository(self, all_apis: List[Dict[str, Any]], available_entities: Optional[set] = None) -> str:
+    def generate_repository(
+        self, 
+        all_apis: List[Dict[str, Any]], 
+        available_entities: Optional[set] = None,
+        api_to_response_entity: Optional[Dict[tuple, str]] = None,
+        api_to_request_entity: Optional[Dict[tuple, str]] = None
+    ) -> str:
         """
         生成 Repository 类代码
         
@@ -33,6 +39,9 @@ class FlutterRepositoryGenerator:
         """
         # 保存可用实体类集合，用于检查实体类是否存在
         self.available_entities = available_entities or set()
+        # 保存映射关系
+        self.api_to_response_entity = api_to_response_entity or {}
+        self.api_to_request_entity = api_to_request_entity or {}
         
         # 收集所有需要的分类
         categories = set()
@@ -43,8 +52,8 @@ class FlutterRepositoryGenerator:
         
         # 生成导入语句
         import_lines = [
-            f"import '{self.base_package}/models/response_data.dart';",
-            f"import '{self.base_package}/services/api_service.dart';",
+            "import '../models/response_data.dart';",
+            "import '../services/api_service.dart';",
             "import 'package:dio/dio.dart';",
         ]
         
@@ -52,8 +61,8 @@ class FlutterRepositoryGenerator:
         from .entity_schema import sanitize_category_name
         for category_name in sorted(categories):
             category_package = sanitize_category_name(category_name)
-            import_lines.append(f"import '{self.base_package}/models/{category_package}/request/request.dart';")
-            import_lines.append(f"import '{self.base_package}/models/{category_package}/response/response.dart';")
+            import_lines.append(f"import '../models/{category_package}/request/request.dart';")
+            import_lines.append(f"import '../models/{category_package}/response/response.dart';")
         
         lines = import_lines + [
             "",
@@ -93,6 +102,9 @@ class FlutterRepositoryGenerator:
         # 复用 DioServiceGenerator 的方法提取逻辑
         dio_gen = DioServiceGenerator(self.base_package)
         dio_gen.available_entities = getattr(self, 'available_entities', set())
+        # 设置映射关系（如果存在）
+        dio_gen.api_to_response_entity = getattr(self, 'api_to_response_entity', {})
+        dio_gen.api_to_request_entity = getattr(self, 'api_to_request_entity', {})
         method_name = dio_gen._generate_method_name(api, api_data.get("page"))
         return_type = dio_gen._generate_return_type(api, api_data.get("page"), api_data)
         

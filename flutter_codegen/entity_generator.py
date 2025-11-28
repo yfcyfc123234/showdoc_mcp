@@ -3,7 +3,7 @@ Flutter 实体类生成器
 
 将 API 响应数据转换为 Dart 类（使用 json_serializable）
 """
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 import json
 
 from .utils import sanitize_class_name, sanitize_field_name
@@ -74,9 +74,7 @@ class FlutterEntityGenerator:
         ]
         
         # 添加嵌套实体类的导入（如果需要）
-        if nested_entities:
-            for nested_name in nested_entities.keys():
-                # 嵌套实体类在同一文件中定义，不需要导入
+        # 注意：嵌套实体类在同一文件中定义，不需要导入
         
         # 生成文档注释
         lines.append("///")

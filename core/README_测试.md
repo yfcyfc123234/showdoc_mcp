@@ -34,7 +34,7 @@ COOKIE = None  # 可选，如果提供则使用 Cookie 认证
 NODE_NAME = None
 
 # 导出路径配置
-# None: 使用默认文件名（showdoc_export_{item_id}.json）
+# None: 使用默认文件名（保存到 output/showdoc_export_{item_id}.json）
 # 字符串: 导出到指定路径，支持 {item_id} 占位符
 EXPORT_PATH = None  # 例如: "output/showdoc_{item_id}.json"
 
@@ -71,7 +71,7 @@ AUTO_EXPORT = False
 |------------|-------------|------|
 | `False` | `None` | 交互式询问是否导出，使用默认文件名 |
 | `False` | `"路径"` | 交互式询问是否导出，使用指定路径 |
-| `True` | `None` | 自动导出到默认文件名（`showdoc_export_{item_id}.json`） |
+| `True` | `None` | 自动导出到默认文件名（`output/showdoc_export_{item_id}.json`） |
 | `True` | `"路径"` | 自动导出到指定路径 |
 
 ### 配置示例
@@ -92,7 +92,7 @@ EXPORT_PATH = None
 AUTO_EXPORT = True
 ```
 
-自动导出到默认文件名 `showdoc_export_{item_id}.json`，不会询问。
+自动导出到默认文件名 `output/showdoc_export_{item_id}.json`，不会询问。
 
 #### 2. 自动导出到固定路径
 
@@ -148,9 +148,9 @@ EXPORT_PATH = "output/subfolder/data.json"
 
 ### 使用场景
 
-1. **开发环境**: 使用默认路径或项目根目录
+1. **开发环境**: 使用默认路径（output/ 目录）
    ```python
-   EXPORT_PATH = None  # 或 "showdoc_export_{item_id}.json"
+   EXPORT_PATH = None  # 默认保存到 output/showdoc_export_{item_id}.json
    ```
 
 2. **生产环境**: 使用专门的输出目录

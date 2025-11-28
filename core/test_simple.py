@@ -41,7 +41,7 @@ PASSWORD = "123456"  # 默认密码，如果未提供 COOKIE 则使用密码自�
 NODE_NAME = None
 
 # 导出文件路径配置
-# None: 使用默认文件名（showdoc_nodes_{item_id}.json）
+# None: 使用默认文件名（保存到 output/showdoc_nodes_{item_id}.json）
 # 字符串: 导出到指定路径，支持 {item_id} 占位符
 # 例如: "output/nodes_{item_id}.json" 或 "output/nodes.json"
 EXPORT_PATH = None
@@ -101,7 +101,7 @@ def export_json(node_tree, export_path=None, auto_export=False):
     
     Args:
         node_tree: 节点树字典
-        export_path: 导出路径，None 表示使用默认文件名
+        export_path: 导出路径，None 表示使用默认文件名（保存到 output/ 目录）
         auto_export: 是否自动导出，True 表示不询问直接导出
     
     Returns:
@@ -110,7 +110,10 @@ def export_json(node_tree, export_path=None, auto_export=False):
     # 确定文件名
     item_id = node_tree.get("item_info", {}).get("item_id", "unknown")
     if export_path is None:
-        filename = f"showdoc_nodes_{item_id}.json"
+        # 默认保存到 output/ 目录
+        output_dir = Path("output")
+        output_dir.mkdir(parents=True, exist_ok=True)
+        filename = str(output_dir / f"showdoc_nodes_{item_id}.json")
     else:
         filename = export_path
         # 替换占位符

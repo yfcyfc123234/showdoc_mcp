@@ -35,7 +35,7 @@ from flutter_codegen import FlutterCodeGenerator
 
 
 # ========== 配置参数（请修改为你的实际参数）==========
-BASE_URL = "https://www.showdoc.com.cn/2598847052437483/0"
+BASE_URL = "https://doc.cqfengli.com/web/#/110/6567"
 COOKIE = None  # 可选，如果提供则使用 Cookie 认证
 PASSWORD = "123456"  # 默认密码，如果未提供 COOKIE 则使用密码自动登录
 
