@@ -37,12 +37,12 @@ from mcp_showdoc.server import (
 
 
 # ========== 配置参数 ==========
-BASE_URL = "https://www.showdoc.com.cn/2598847052437483/11559024030603677"
+BASE_URL = "https://doc.cqfengli.com/web/#/110/6567"
 COOKIE = None  # 可选，如果提供则使用 Cookie 认证
 PASSWORD = "123456"  # 默认密码，如果未提供 COOKIE 则使用密码自动登录
 
 # 要查询详细信息的节点名称（默认为"用户信息"）
-TARGET_NODE_NAME = "用户信息"  # 可以修改为其他节点名称，如 "订单"、"商品" 等
+TARGET_NODE_NAME = "面试报告"  # 可以修改为其他节点名称，如 "订单"、"商品" 等
 
 
 def print_node_tree(node_tree, indent=0):
