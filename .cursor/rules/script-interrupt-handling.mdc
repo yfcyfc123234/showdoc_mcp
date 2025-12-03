@@ -1,0 +1,395 @@
+---
+alwaysApply: true
+---
+
+# 脚本中断处理规则
+
+> AI 生成的所有可执行脚本（Python、Shell、PowerShell、JavaScript 等）必须支持中途终止，允许用户通过 Ctrl+C 或其他中断信号安全地停止脚本执行。
+
+## 核心原则
+
+### 中断处理要求
+
+- **必须支持中断**：所有脚本必须能够响应中断信号（SIGINT、SIGTERM 等）
+- **优雅退出**：中断时应该优雅地清理资源，保存必要数据
+- **用户友好**：中断时显示清晰的提示信息
+- **无副作用**：中断不应该导致数据损坏或资源泄漏
+
+## 具体规范
+
+### Python 脚本
+
+#### 基本中断处理
+
+```python
+import signal
+import sys
+
+def signal_handler(sig, frame):
+    """处理中断信号"""
+    print('\n\n⚠️  脚本被用户中断，正在安全退出...')
+    # 执行清理操作
+    cleanup()
+    sys.exit(0)
+
+def cleanup():
+    """清理资源"""
+    # 保存必要数据
+    # 关闭文件、数据库连接等
+    pass
+
+# 注册信号处理器
+signal.signal(signal.SIGINT, signal_handler)
+signal.signal(signal.SIGTERM, signal_handler)
+
+# 主程序逻辑
+try:
+    # 脚本主要逻辑
+    main()
+except KeyboardInterrupt:
+    print('\n\n⚠️  脚本被用户中断')
+    cleanup()
+    sys.exit(0)
+```
+
+#### 长时间运行的任务
+
+对于长时间运行的任务，应该定期检查中断信号：
+
+```python
+import signal
+import sys
+
+interrupted = False
+
+def signal_handler(sig, frame):
+    global interrupted
+    interrupted = True
+    print('\n\n⚠️  收到中断信号，将在当前任务完成后退出...')
+
+signal.signal(signal.SIGINT, signal_handler)
+signal.signal(signal.SIGTERM, signal_handler)
+
+# 循环处理任务
+for item in items:
+    if interrupted:
+        print('\n⚠️  脚本被中断，正在退出...')
+        break
+    
+    # 处理任务
+    process_item(item)
+```
+
+### Shell 脚本（Bash）
+
+```bash
+#!/bin/bash
+
+# 清理函数
+cleanup() {
+    echo ""
+    echo "⚠️  脚本被中断，正在清理..."
+    # 执行清理操作
+    # 删除临时文件、关闭连接等
+    exit 0
+}
+
+# 注册中断处理
+trap cleanup SIGINT SIGTERM
+
+# 主程序逻辑
+main() {
+    # 脚本主要逻辑
+    # ...
+}
+
+main
+```
+
+### PowerShell 脚本
+
+```powershell
+# 清理函数
+function Cleanup {
+    Write-Host ""
+    Write-Host "⚠️  脚本被中断，正在清理..." -ForegroundColor Yellow
+    # 执行清理操作
+    exit 0
+}
+
+# 注册中断处理
+[Console]::TreatControlCAsInput = $false
+$null = Register-EngineEvent PowerShell.Exiting -Action { Cleanup }
+
+# 主程序逻辑
+try {
+    # 脚本主要逻辑
+    Main-Function
+}
+catch {
+    if ($_.Exception.Message -match "interrupt|cancel") {
+        Cleanup
+    }
+    throw
+}
+```
+
+### JavaScript/Node.js 脚本
+
+```javascript
+// 清理函数
+function cleanup() {
+    console.log('\n⚠️  脚本被中断，正在清理...');
+    // 执行清理操作
+    process.exit(0);
+}
+
+// 注册中断处理
+process.on('SIGINT', cleanup);
+process.on('SIGTERM', cleanup);
+
+// 主程序逻辑
+async function main() {
+    try {
+        // 脚本主要逻辑
+        await runTasks();
+    } catch (error) {
+        if (error.message === 'SIGINT') {
+            cleanup();
+        } else {
+            throw error;
+        }
+    }
+}
+
+main();
+```
+
+## 实现要求
+
+### 1. 信号处理
+
+- **Python**：使用 `signal.signal()` 或 `try/except KeyboardInterrupt`
+- **Shell**：使用 `trap` 命令
+- **PowerShell**：使用 `Register-EngineEvent` 或 `try/catch`
+- **Node.js**：使用 `process.on('SIGINT')` 和 `process.on('SIGTERM')`
+
+### 2. 清理操作
+
+中断时应该执行以下清理操作（如适用）：
+
+- 保存已处理的数据
+- 关闭打开的文件
+- 关闭数据库连接
+- 删除临时文件
+- 释放系统资源
+- 显示进度信息（已处理多少，还剩多少）
+
+### 3. 用户提示
+
+中断时应该显示清晰的提示信息：
+
+- 确认收到中断信号
+- 说明正在执行清理操作
+- 显示已完成的进度（如适用）
+
+### 4. 长时间运行的任务
+
+对于长时间运行的任务（批量处理、循环操作等），应该：
+
+- 定期检查中断标志
+- 在任务边界处检查中断（而不是在任务中间）
+- 允许当前任务完成后再退出（可选，根据场景决定）
+
+## 适用场景
+
+### 必须实现中断处理的脚本类型
+
+1. **批量文件操作脚本**
+   - 批量复制、移动、删除文件
+   - 批量处理图片、资源文件
+
+2. **数据处理脚本**
+   - 批量处理数据
+   - 数据转换、导入、导出
+
+3. **代码生成脚本**
+   - 批量生成代码文件
+   - 代码转换、重构脚本
+
+4. **网络请求脚本**
+   - 批量 API 调用
+   - 数据抓取脚本
+
+5. **长时间运行的任务**
+   - 任何可能运行较长时间的脚本
+
+### 不需要中断处理的场景
+
+- 非常简单的脚本（几秒钟内完成）
+- 一次性执行的脚本（但建议仍然添加）
+
+## 使用示例
+
+### 示例 1：批量文件复制脚本
+
+```python
+import signal
+import sys
+import shutil
+from pathlib import Path
+
+interrupted = False
+
+def signal_handler(sig, frame):
+    global interrupted
+    interrupted = True
+    print('\n\n⚠️  收到中断信号，将在当前文件复制完成后退出...')
+
+signal.signal(signal.SIGINT, signal_handler)
+
+def batch_copy_files(source_dir, dest_dir):
+    source = Path(source_dir)
+    dest = Path(dest_dir)
+    dest.mkdir(parents=True, exist_ok=True)
+    
+    files = list(source.glob('*.png'))
+    total = len(files)
+    copied = 0
+    
+    for file in files:
+        if interrupted:
+            print(f'\n⚠️  脚本被中断，已复制 {copied}/{total} 个文件')
+            break
+        
+        shutil.copy2(file, dest / file.name)
+        copied += 1
+        print(f'已复制: {file.name} ({copied}/{total})')
+
+if __name__ == '__main__':
+    try:
+        batch_copy_files('source', 'dest')
+    except KeyboardInterrupt:
+        print('\n⚠️  脚本被用户中断')
+        sys.exit(0)
+```
+
+### 示例 2：数据处理脚本
+
+```python
+import signal
+import sys
+import json
+
+def cleanup():
+    print('\n⚠️  正在保存已处理的数据...')
+    # 保存进度
+    with open('progress.json', 'w') as f:
+        json.dump({'last_processed': last_id}, f)
+    print('进度已保存')
+
+def signal_handler(sig, frame):
+    cleanup()
+    sys.exit(0)
+
+signal.signal(signal.SIGINT, signal_handler)
+
+# 主程序
+try:
+    process_data()
+except KeyboardInterrupt:
+    cleanup()
+    sys.exit(0)
+```
+
+## 最佳实践
+
+### 1. 进度保存
+
+对于长时间运行的任务，应该定期保存进度，以便中断后可以恢复：
+
+```python
+def save_progress(current_item, total_items):
+    progress = {
+        'current': current_item,
+        'total': total_items,
+        'timestamp': time.time()
+    }
+    with open('progress.json', 'w') as f:
+        json.dump(progress, f)
+```
+
+### 2. 资源清理
+
+确保所有资源都被正确清理：
+
+```python
+def cleanup():
+    # 关闭文件
+    if 'file_handle' in globals():
+        file_handle.close()
+    
+    # 关闭数据库连接
+    if 'db_connection' in globals():
+        db_connection.close()
+    
+    # 删除临时文件
+    temp_files = Path('temp').glob('*.tmp')
+    for f in temp_files:
+        f.unlink()
+```
+
+### 3. 用户反馈
+
+中断时提供清晰的反馈：
+
+```python
+def signal_handler(sig, frame):
+    print('\n')
+    print('=' * 50)
+    print('⚠️  脚本执行被中断')
+    print(f'已处理: {processed_count}/{total_count} 项')
+    print('正在清理资源...')
+    print('=' * 50)
+    cleanup()
+    sys.exit(0)
+```
+
+### 4. 优雅降级
+
+对于某些任务，可以允许当前任务完成后再退出：
+
+```python
+def signal_handler(sig, frame):
+    global interrupted
+    interrupted = True
+    print('\n⚠️  收到中断信号，将在当前任务完成后退出...')
+    # 不立即退出，而是设置标志，让当前任务完成
+```
+
+## 注意事项
+
+1. **Windows 系统**
+   - Windows 上的 Ctrl+C 行为可能略有不同
+   - PowerShell 脚本需要特殊处理
+   - 某些情况下可能需要使用 `Ctrl+Break`
+
+2. **后台任务**
+   - 如果脚本启动后台任务，需要确保也能正确清理
+   - 子进程也需要处理中断信号
+
+3. **数据库事务**
+   - 中断时应该回滚未提交的事务
+   - 避免数据不一致
+
+4. **文件锁定**
+   - 中断时应该释放文件锁
+   - 避免文件被占用
+
+5. **网络连接**
+   - 中断时应该关闭网络连接
+   - 避免连接泄漏
+
+---
+
+**说明**：此规则确保所有 AI 生成的脚本都可以被用户安全地中断，避免长时间等待或强制终止进程。

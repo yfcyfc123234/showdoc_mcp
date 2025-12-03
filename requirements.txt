@@ -39,3 +39,16 @@ googletrans==4.0.0rc1
 # 翻译结果会自动缓存，避免重复翻译相同文本
 # ====================================
 
+# ========== 压缩解压工具依赖 ==========
+# ZIP 格式增强支持（真正的密码保护，使用 AES 加密）
+# 如果未安装，将回退到标准库 zipfile（密码保护有限）
+pyzipper>=0.3.6
+
+# 7Z 格式支持（纯 Python 实现）
+py7zr>=0.21.0
+
+# RAR 格式支持（需要系统安装 unrar 工具）
+# Windows: 需要 unrar.exe 在 PATH 中
+# Linux: 需要安装 unrar 包（如 apt-get install unrar）
+rarfile>=4.1
+

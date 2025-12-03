@@ -1,0 +1,130 @@
+---
+alwaysApply: true
+---
+
+# Python 项目规则
+
+> 适用于 Python 脚本和工具开发项目
+
+## 项目类型
+- **项目类型**：Python 项目
+- **主要用途**：脚本和工具开发
+- **开发原则**：简单直接，快速实现功能，不需要过度设计
+
+## 代码风格
+
+### 命名规范
+- **函数/变量**：snake_case（如 `fetch_user_data()`、`user_name`）
+- **类名**：PascalCase（如 `UserRepository`、`DataProcessor`）
+- **常量**：UPPER_SNAKE_CASE（如 `MAX_RETRY_COUNT`、`API_BASE_URL`）
+- **私有成员**：以下划线开头（如 `_private_method()`）
+
+### 代码规范
+- 遵循 PEP 8 规范
+- 使用 4 个空格缩进（不使用 Tab）
+- 行长度不超过 100 字符（可适当放宽）
+- 导入语句按标准库、第三方库、本地模块分组
+
+## 架构模式
+
+### 简单脚本
+- 直接实现功能，不需要复杂架构
+- 保持代码清晰易读
+- 关键操作需要错误处理
+
+### 工具项目
+- 如果脚本会长期使用，保持代码清晰易读
+- 可以适当模块化（按功能拆分文件）
+- 避免过度设计，保持简洁
+
+## 依赖管理
+
+### requirements.txt
+- 使用 `requirements.txt` 管理依赖
+- 指定版本号（如 `requests==2.31.0`）
+- 可以使用 `pyproject.toml`（现代 Python 项目）
+
+### 虚拟环境
+- 使用虚拟环境（venv、conda 等）
+- 不要将虚拟环境目录提交到 Git
+
+## 错误处理
+
+### 异常处理
+- 关键操作需要错误处理
+- 简单脚本可以简单处理
+- 使用 try-except 捕获异常
+- 提供有意义的错误信息
+
+### 日志记录
+- 使用 logging 模块记录日志
+- 关键操作记录日志
+- 使用合适的日志级别
+
+## 代码组织
+
+### 简单脚本
+```
+project/
+├── main.py           # 主脚本
+├── utils.py          # 工具函数（如需要）
+└── requirements.txt  # 依赖列表
+```
+
+### 工具项目
+```
+project/
+├── main.py
+├── config.py         # 配置文件
+├── modules/          # 功能模块
+│   ├── __init__.py
+│   └── processor.py
+├── utils/            # 工具类
+│   ├── __init__.py
+│   └── helpers.py
+└── requirements.txt
+```
+
+## 运行环境
+
+### 跨平台兼容
+- 考虑跨平台兼容性（Windows/Linux/Mac）
+- 路径处理使用 `os.path` 或 `pathlib`
+- 注意不同操作系统的差异
+
+### Python 版本
+- 明确 Python 版本要求（如 Python 3.8+）
+- 在 README 或 requirements.txt 中说明
+- 使用 f-string 等现代 Python 特性（Python 3.6+）
+
+## Git 工作流
+
+### 文件管理
+- 新创建的文件自动添加到 Git
+- 修改的文件自动添加到 Git
+- 忽略 `__pycache__/`、`*.pyc`、`.venv/` 等
+
+### .gitignore
+```
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+env/
+```
+
+## 其他规范
+
+### 文档
+- 关键函数和类添加文档字符串（docstring）
+- 使用 Google 或 NumPy 风格的 docstring
+- README.md 说明项目用途和运行方法
+
+### 性能
+- 简单脚本优先快速实现
+- 如需性能优化，先确保功能正确
+- 使用合适的数据结构（列表、字典、集合等）

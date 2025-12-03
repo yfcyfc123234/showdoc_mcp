@@ -1,0 +1,18 @@
+---
+alwaysApply: true
+---
+
+# Git 自动化规则
+
+## 自动添加文件到 Git
+
+- **创建新文件后**：自动执行 `git add <文件路径>` 添加新创建的文件
+- **修改现有文件后**：自动执行 `git add <文件路径>` 添加修改的文件
+- **执行时机**：在我完成文件创建或修改操作后立即执行，不需要询问
+- **文件路径规则**：
+  - 只添加源代码文件（.kt, .java, .xml, .gradle, .properties 等）
+  - 跳过 build/ 目录、.gradle 目录下的文件
+  - 跳过 .gitignore 中已忽略的文件（通过 `git check-ignore` 检查）
+  - 跳过临时文件、缓存文件、生成的 APK/AAB 文件
+- **错误处理**：如果 git add 失败（如文件在 .gitignore 中），静默跳过即可
+- **目的**：让修改的文件在 Android Studio 等工具中可以一键提交，无需手动 git add

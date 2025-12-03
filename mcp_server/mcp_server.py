@@ -25,6 +25,10 @@ from .server import (
     get_node_cookie,
 )
 from cursor_agents import CursorAgentsClient
+from archive_tools.mcp_server import (
+    compress_files_tool as _compress_files_tool,
+    extract_archive_tool as _extract_archive_tool,
+)
 
 # 配置日志到 UTF-8 stderr，避免干扰 MCP 协议的 stdout
 utf8_stderr = io.TextIOWrapper(
@@ -544,6 +548,87 @@ async def list_cursor_repositories_tool(
         }
     except Exception as e:
         raise ToolError(f"列出仓库失败: {e}")
+
+
+# ========== 压缩解压工具 ==========
+
+@app.tool()
+async def compress_files_tool(
+    source_paths: Annotated[List[str], "要压缩的文件或目录路径列表"],
+    output_path: Annotated[str, "输出压缩文件路径"],
+    format: Annotated[str, "压缩格式：zip、7z 或 rar（默认 zip）"] = "zip",
+    compression_level: Annotated[int, "压缩级别：0-9，0=最快，9=最小（默认 6）"] = 6,
+    compression_method: Annotated[str, "压缩方式：standard、store、fastest、best（默认 standard）"] = "standard",
+    password: Annotated[Optional[str], "压缩密码（可选）"] = None,
+    split_size: Annotated[Optional[str], "分卷大小，如 '100MB'、'1GB'（可选）"] = None,
+    delete_source: Annotated[bool, "压缩后删除源文件（默认 False）"] = False,
+    store_low_ratio: Annotated[bool, "直接存储压缩率低的文件（默认 False）"] = False,
+    separate_archives: Annotated[bool, "压缩每个文件到单独的压缩包（默认 False）"] = False,
+) -> dict:
+    """
+    压缩文件或目录。
+    
+    支持 ZIP、7Z、RAR 格式的压缩，提供多种压缩选项：
+    - 压缩级别：0（最快）到 9（最小）
+    - 密码保护
+    - 分卷压缩
+    - 压缩后删除源文件
+    - 每个文件单独压缩
+    
+    必需参数：
+    - source_paths: 要压缩的文件或目录路径列表
+    - output_path: 输出压缩文件路径
+    
+    可选参数：
+    - format: 压缩格式（zip、7z、rar），默认 zip
+    - compression_level: 压缩级别（0-9），默认 6
+    - compression_method: 压缩方式，默认 standard
+    - password: 压缩密码
+    - split_size: 分卷大小（如 "100MB"、"1GB"）
+    - delete_source: 压缩后删除源文件
+    - store_low_ratio: 直接存储压缩率低的文件
+    - separate_archives: 压缩每个文件到单独的压缩包
+    """
+    return await _compress_files_tool(
+        source_paths=source_paths,
+        output_path=output_path,
+        format=format,
+        compression_level=compression_level,
+        compression_method=compression_method,
+        password=password,
+        split_size=split_size,
+        delete_source=delete_source,
+        store_low_ratio=store_low_ratio,
+        separate_archives=separate_archives,
+    )
+
+
+@app.tool()
+async def extract_archive_tool(
+    archive_path: Annotated[str, "要解压的压缩文件路径"],
+    output_dir: Annotated[Optional[str], "输出目录（可选，默认解压到压缩文件所在目录）"] = None,
+    password: Annotated[Optional[str], "解压密码（可选）"] = None,
+    delete_archive: Annotated[bool, "解压后删除压缩包（默认 False）"] = False,
+) -> dict:
+    """
+    解压压缩文件。
+    
+    支持 ZIP、7Z、RAR 格式的解压，自动识别格式。
+    
+    必需参数：
+    - archive_path: 要解压的压缩文件路径
+    
+    可选参数：
+    - output_dir: 输出目录，默认解压到压缩文件所在目录
+    - password: 解压密码
+    - delete_archive: 解压后删除压缩包
+    """
+    return await _extract_archive_tool(
+        archive_path=archive_path,
+        output_dir=output_dir,
+        password=password,
+        delete_archive=delete_archive,
+    )
 
 
 def main() -> None:

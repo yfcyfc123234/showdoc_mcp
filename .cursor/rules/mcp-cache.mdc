@@ -1,0 +1,266 @@
+---
+alwaysApply: true
+---
+
+# MCP 缓存规则
+
+> 当 AI 使用 MCP（Model Context Protocol）工具时，自动将返回的原始数据和生成的临时文件（分析、小插件、工具等）保存到项目根目录的 `mcp-cache` 文件夹中，以便后续查看和分析。
+
+## 核心原则
+
+### 自动缓存机制
+
+- **执行时机**：每次调用 MCP 工具并收到响应后，立即保存原始数据
+- **保存位置**：项目根目录下的 `mcp-cache/` 文件夹
+- **数据格式**：保存完整的原始响应数据（JSON 格式）
+- **临时文件**：AI 基于 MCP 数据生成的临时文件（分析、小插件、工具等）也保存到此目录
+- **无需询问**：自动执行，不需要询问用户
+
+## 具体规范
+
+### 目录结构
+
+```text
+项目根目录/
+└── mcp-cache/
+    ├── figma/                       # Figma MCP 相关文件
+    │   ├── figma_data_001.json     # 原始响应数据
+    │   ├── figma_data_002.json
+    │   ├── analysis_001.md         # 临时文件：分析文档
+    │   ├── plugin_001.py           # 临时文件：插件
+    │   └── tool_001.js              # 临时文件：工具
+    ├── showdoc/                     # ShowDoc MCP 相关文件
+    │   ├── showdoc_apis_001.json   # 原始响应数据
+    │   ├── api_analyzer.py          # 临时文件：分析工具
+    │   └── code_generator.dart      # 临时文件：代码生成器
+    └── browser/                     # Browser MCP 相关文件
+        ├── browser_snapshot_001.json # 原始响应数据
+        └── snapshot_analyzer.py     # 临时文件：分析工具
+```
+
+### 文件命名规则
+
+#### 目录命名
+
+按 MCP 名称创建子目录（如 `figma`、`showdoc`、`browser`、`cursor-agents`）：
+
+- 从 MCP 工具名称提取：`mcp_Framelink_MCP_for_Figma_*` → `figma`
+- 从 MCP 工具名称提取：`mcp_personal-mcp_fetch_showdoc_*` → `showdoc`
+- 从 MCP 工具名称提取：`mcp_personal-mcp_*cursor*` → `cursor-agents`
+- 从 MCP 工具名称提取：`mcp_cursor-browser-extension_*` → `browser`
+
+#### 原始数据文件命名
+
+- **文件命名**：`{mcp_tool_name}_{sequence}.json`
+  - `mcp_tool_name`：MCP 工具名称（如 `figma_data`、`showdoc_apis`、`browser_snapshot`）
+  - `sequence`：序号（3 位数字，同一 MCP 工具调用的序号）
+
+#### 临时文件命名
+
+- **文件命名**：`{file_type}_{description}_{sequence}.{ext}`
+  - `file_type`：文件类型（如 `analysis`、`plugin`、`tool`、`script`）
+  - `description`：简短描述（可选）
+  - `sequence`：序号（3 位数字）
+  - `ext`：文件扩展名（`.py`、`.js`、`.md`、`.json` 等）
+
+### 文件命名示例
+
+#### 原始数据文件示例
+
+- `mcp-cache/figma/figma_data_001.json`：Figma 数据获取
+- `mcp-cache/showdoc/showdoc_apis_001.json`：ShowDoc API 抓取
+- `mcp-cache/browser/browser_snapshot_001.json`：浏览器快照
+- `mcp-cache/cursor-agents/cursor_agents_001.json`：Cursor Agents 查询
+
+#### 临时文件示例
+
+- `mcp-cache/figma/analysis_design_system_001.md`：Figma 设计系统分析文档
+- `mcp-cache/figma/plugin_export_assets_002.py`：Figma 资源导出插件
+- `mcp-cache/showdoc/tool_api_generator_001.dart`：ShowDoc API 代码生成工具
+- `mcp-cache/showdoc/analyzer_response_002.py`：ShowDoc 响应分析脚本
+- `mcp-cache/browser/tool_snapshot_parser_001.js`：浏览器快照解析工具
+
+### 数据保存格式
+
+保存完整的原始响应数据，使用 JSON 格式：
+
+```json
+{
+  "tool_name": "mcp_tool_name",
+  "timestamp": "2024-01-15T10:30:00Z",
+  "request_params": {
+    "param1": "value1",
+    "param2": "value2"
+  },
+  "response_data": {
+    // 完整的 MCP 工具返回的原始数据
+  }
+}
+```
+
+### 实现要求
+
+1. **自动创建目录**
+   - 如果 `mcp-cache/` 目录不存在，自动创建
+   - 如果 MCP 名称子目录（`mcp-cache/{mcp_name}/`）不存在，自动创建
+
+2. **保存完整数据**
+   - 保存 MCP 工具返回的完整原始数据到 `mcp-cache/{mcp_name}/` 目录
+   - 包含请求参数和响应数据
+   - 添加时间戳和工具名称等元数据
+
+3. **保存临时文件**
+   - AI 基于 MCP 数据生成的所有临时文件保存到 `mcp-cache/{mcp_name}/` 目录
+   - 包括但不限于：分析文档、小插件、工具脚本、代码生成器等
+   - 原始数据和临时文件都保存在同一个 MCP 名称目录下，不区分子目录
+
+4. **错误处理**
+   - 如果保存失败，静默处理，不影响主流程
+   - 不因缓存失败而中断 MCP 工具的正常使用
+
+5. **文件大小管理**
+   - 对于大型响应数据，直接保存（不压缩）
+   - 如果文件过大（>10MB），可以考虑分块保存或添加警告
+
+## 适用场景
+
+### 需要缓存的 MCP 工具
+
+以下类型的 MCP 工具调用应该保存缓存：
+
+1. **Figma 相关**
+   - `mcp_Framelink_MCP_for_Figma_get_figma_data`
+   - `mcp_Framelink_MCP_for_Figma_download_figma_images`
+   - 所有文件保存到：`mcp-cache/figma/`
+
+2. **ShowDoc 相关**
+   - `mcp_personal-mcp_fetch_showdoc_apis`
+   - `mcp_personal-mcp_fetch_showdoc_node_tree`
+   - `mcp_personal-mcp_fetch_node_detail_info`
+   - 所有文件保存到：`mcp-cache/showdoc/`
+
+3. **Cursor Agents 相关**
+   - `mcp_personal-mcp_list_cursor_agents_tool`
+   - `mcp_personal-mcp_get_cursor_agent_status_tool`
+   - `mcp_personal-mcp_get_cursor_agent_conversation_tool`
+   - 所有文件保存到：`mcp-cache/cursor-agents/`
+
+4. **浏览器相关**
+   - `mcp_cursor-browser-extension_browser_snapshot`
+   - `mcp_cursor-browser-extension_browser_take_screenshot`
+   - 所有文件保存到：`mcp-cache/browser/`
+
+5. **其他 MCP 工具**
+   - 所有返回数据的 MCP 工具都应该保存缓存
+   - 按 MCP 名称分类保存到对应的目录
+
+### 临时文件类型
+
+以下类型的临时文件需要保存到 `mcp-cache/{mcp_name}/` 目录：
+
+- **分析文档**：基于 MCP 数据生成的分析报告（`.md`、`.txt`）
+- **小插件**：用于处理 MCP 数据的插件脚本（`.py`、`.js`、`.dart` 等）
+- **工具脚本**：用于分析、转换、处理数据的工具（`.py`、`.js`、`.sh` 等）
+- **代码生成器**：基于 MCP 数据生成的代码文件（`.dart`、`.kt`、`.java` 等）
+- **配置文件**：基于 MCP 数据生成的配置文件（`.json`、`.yaml`、`.xml` 等）
+- **其他临时文件**：任何基于 MCP 数据生成的临时文件
+
+### 不需要缓存的情况
+
+以下情况不需要保存缓存：
+
+- MCP 工具调用失败（返回错误）
+- 工具返回的数据为空或无效
+- 用户明确要求不保存（虽然默认自动保存）
+
+## 使用示例
+
+### 示例 1：Figma 数据获取
+
+```text
+AI 调用：mcp_Framelink_MCP_for_Figma_get_figma_data
+响应：获取到 Figma 文件数据
+自动保存：mcp-cache/figma/figma_data_001.json
+```
+
+### 示例 2：ShowDoc API 抓取
+
+```text
+AI 调用：mcp_personal-mcp_fetch_showdoc_apis
+响应：获取到 API 列表数据
+自动保存：mcp-cache/showdoc/showdoc_apis_001.json
+```
+
+### 示例 3：浏览器快照
+
+```text
+AI 调用：mcp_cursor-browser-extension_browser_snapshot
+响应：获取到页面快照数据
+自动保存：mcp-cache/browser/browser_snapshot_001.json
+```
+
+### 示例 4：生成临时文件
+
+```text
+AI 调用：mcp_personal-mcp_fetch_showdoc_apis
+响应：获取到 API 列表数据
+自动保存原始数据：mcp-cache/showdoc/showdoc_apis_001.json
+AI 生成代码生成器：mcp-cache/showdoc/tool_api_generator_001.dart
+```
+
+### 示例 5：Figma 分析文档
+
+```text
+AI 调用：mcp_Framelink_MCP_for_Figma_get_figma_data
+响应：获取到 Figma 文件数据
+自动保存原始数据：mcp-cache/figma/figma_data_001.json
+AI 生成分析文档：mcp-cache/figma/analysis_design_system_001.md
+```
+
+## 最佳实践
+
+### 1. 数据完整性
+
+- 保存完整的原始数据，不做任何修改或过滤
+- 保留所有字段，包括可能看起来冗余的数据
+
+### 2. 元数据记录
+
+- 记录工具名称、调用时间、请求参数等元数据
+- 方便后续查找和分析
+
+### 3. 目录管理
+
+- **所有文件**：按 MCP 名称组织文件（`mcp-cache/{mcp_name}/`），便于按工具分类管理
+- 原始数据和临时文件都保存在同一个 MCP 名称目录下，不区分子目录
+- 不按日期分类，所有文件直接保存在对应的 MCP 名称目录下
+- 定期清理旧数据（可选，由用户决定）
+
+### 4. 隐私和安全
+
+- 缓存文件可能包含敏感数据
+- 建议将 `mcp-cache/` 目录添加到 `.gitignore` 中
+- 不要将缓存数据提交到版本控制系统
+
+## 注意事项
+
+1. **存储空间**
+   - 缓存文件会占用磁盘空间
+   - 对于频繁调用的工具，可能产生大量缓存文件
+   - 用户可以根据需要手动清理
+
+2. **性能影响**
+   - 保存操作应该是异步的，不影响主流程性能
+   - 如果保存操作耗时，应该异步执行
+
+3. **版本控制**
+   - 建议在 `.gitignore` 中添加 `mcp-cache/`
+   - 避免将缓存数据提交到 Git
+
+4. **数据格式**
+   - 确保 JSON 格式正确，可以正常解析
+   - 处理特殊字符和编码问题
+
+---
+
+**说明**：此规则确保所有 MCP 工具调用的原始数据和生成的临时文件都被保存，方便后续查看、分析和调试。所有文件按 MCP 名称分类保存在 `mcp-cache/{mcp_name}/` 目录下，不按日期分类。
