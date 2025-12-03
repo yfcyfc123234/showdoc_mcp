@@ -186,6 +186,7 @@ python -m flutter_codegen.test
 - **cursor_agents/**: Cursor Cloud Agents API 客户端，详见 [cursor_agents/README.md](cursor_agents/README.md)
 - **mcp_server/**: MCP 服务器，详见 [mcp_server/README.md](mcp_server/README.md)
 - **api_docs/**: API 文档示例，详见 [api_docs/README.md](api_docs/README.md)
+- **archive_tools/**: 通用压缩/解压工具模块（ZIP/7Z/RAR），并封装为 MCP 工具，详见 [archive_tools/README.md](archive_tools/README.md)
 
 ## 依赖要求
 

@@ -89,6 +89,34 @@ def _parse_size(size_str: str) -> int:
     return int(number * multipliers.get(unit, 1))
 
 
+def _looks_like_chinese(text: str, threshold: float = 0.3) -> bool:
+    """简单判断字符串是否“像中文”，用于区分乱码和正常中文。
+
+    Args:
+        text: 待判断的字符串
+        threshold: 中文字符占比阈值（0-1），超过则认为是中文
+    """
+    if not text:
+        return False
+
+    total = len(text)
+    if total == 0:
+        return False
+
+    chinese_count = 0
+    for ch in text:
+        code = ord(ch)
+        # 常见 CJK 统一表意文字区间
+        if (
+            0x4E00 <= code <= 0x9FFF     # CJK Unified Ideographs
+            or 0x3400 <= code <= 0x4DBF  # CJK Unified Ideographs Extension A
+            or 0x20000 <= code <= 0x2A6DF  # Extension B
+        ):
+            chinese_count += 1
+
+    return chinese_count / total >= threshold
+
+
 def _validate_format(format: str) -> bool:
     """
     验证格式是否支持。
@@ -648,54 +676,59 @@ def _extract_zip(
     否则使用标准库 zipfile（密码保护有限）。
     """
     try:
-        extracted_files = []
-        
-        # 优先尝试使用 pyzipper（如果已安装）
+        # 先解压出所有文件，并拿到原始文件名列表
+        names: Optional[list] = None
+
+        # 优先尝试使用 pyzipper（如果已安装），这样可以兼容加密 ZIP
         if HAS_PYZIPPER:
             try:
-                # 尝试使用 AESZipFile（支持加密的 ZIP）
+                # 1. 先尝试 AESZipFile
                 with pyzipper.AESZipFile(archive_path, "r") as zipf:
                     if password:
                         zipf.setpassword(password.encode("utf-8"))
-                    
-                    # 解压所有文件
+
                     zipf.extractall(output_dir)
-                    
-                    # 获取解压的文件列表
-                    for name in zipf.namelist():
-                        extracted_files.append(name)
-                
-                return {
-                    "ok": True,
-                    "extracted_files": extracted_files,
-                }
+                    names = list(zipf.namelist())
             except (pyzipper.BadZipFile, ValueError):
-                # 如果不是 AES 加密的 ZIP，尝试普通 ZipFile
+                # 不是 AES ZIP，降级为普通 ZipFile 处理
                 try:
                     with pyzipper.ZipFile(archive_path, "r") as zipf:
                         if password:
                             zipf.setpassword(password.encode("utf-8"))
-                        
+
                         zipf.extractall(output_dir)
-                        
-                        for name in zipf.namelist():
-                            extracted_files.append(name)
-                    
-                    return {
-                        "ok": True,
-                        "extracted_files": extracted_files,
-                    }
+                        names = list(zipf.namelist())
                 except RuntimeError as e:
                     error_msg = str(e).lower()
-                    if "bad password" in error_msg or "password" in error_msg or "decryption" in error_msg:
+                    if (
+                        "bad password" in error_msg
+                        or "password" in error_msg
+                        or "decryption" in error_msg
+                    ):
                         return {
                             "ok": False,
                             "error": "密码错误",
                         }
-                    raise
+                    # 其他错误继续交给标准库 zipfile 处理
+                except Exception as e:
+                    error_msg = str(e).lower()
+                    if (
+                        "bad password" in error_msg
+                        or "password" in error_msg
+                        or "decryption" in error_msg
+                    ):
+                        return {
+                            "ok": False,
+                            "error": "密码错误",
+                        }
+                    # 其他错误继续交给标准库 zipfile 处理
             except RuntimeError as e:
                 error_msg = str(e).lower()
-                if "bad password" in error_msg or "password" in error_msg or "decryption" in error_msg:
+                if (
+                    "bad password" in error_msg
+                    or "password" in error_msg
+                    or "decryption" in error_msg
+                ):
                     return {
                         "ok": False,
                         "error": "密码错误",
@@ -703,31 +736,79 @@ def _extract_zip(
                 # 其他错误继续尝试标准库
             except Exception as e:
                 error_msg = str(e).lower()
-                if "bad password" in error_msg or "password" in error_msg or "decryption" in error_msg:
+                if (
+                    "bad password" in error_msg
+                    or "password" in error_msg
+                    or "decryption" in error_msg
+                ):
                     return {
                         "ok": False,
                         "error": "密码错误",
                     }
                 # 其他错误继续尝试标准库
-        
-        # 使用标准库 zipfile
-        if not HAS_ZIPFILE:
-            return {
-                "ok": False,
-                "error": "zipfile 未安装，无法解压 ZIP 格式",
-            }
-        
-        with zipfile.ZipFile(archive_path, "r") as zipf:
-            if password:
-                zipf.setpassword(password.encode("utf-8"))
-            
-            # 解压所有文件
-            zipf.extractall(output_dir)
-            
-            # 获取解压的文件列表
-            for name in zipf.namelist():
-                extracted_files.append(name)
-        
+
+        # 如果 pyzipper 没有成功拿到文件名列表，使用标准库 zipfile 再尝试一次
+        if names is None:
+            if not HAS_ZIPFILE:
+                return {
+                    "ok": False,
+                    "error": "zipfile 未安装，无法解压 ZIP 格式",
+                }
+
+            with zipfile.ZipFile(archive_path, "r") as zipf:
+                if password:
+                    zipf.setpassword(password.encode("utf-8"))
+
+                zipf.extractall(output_dir)
+                names = [info.filename for info in zipf.infolist()]
+        else:
+            # pyzipper 返回的是 namelist()，同样保证 names 是一个纯字符串列表
+            names = list(names)
+
+        extracted_files = []
+
+        # 统一的文件名修复逻辑（兼容标准 zipfile + pyzipper）
+        for name in names:
+            extracted_files.append(name)
+
+            # 在 Windows 上，很多旧 ZIP 使用本地编码（如 GBK）存储文件名
+            # Python zipfile/pyzipper 默认按 cp437 解码这类文件名，导致中文显示乱码
+            # 这里尝试将当前字符串按 cp437/latin1 编码再用 gbk 解码，恢复原始中文名
+            fixed_name = None
+            try:
+                raw_bytes_cp437 = name.encode("cp437", errors="strict")
+                candidate_cp437 = raw_bytes_cp437.decode("gbk", errors="strict")
+                fixed_name = candidate_cp437
+            except Exception:
+                # 如果 cp437 失败，退回 latin1 -> gbk 的尝试
+                try:
+                    raw_bytes_latin1 = name.encode("latin1", errors="strict")
+                    candidate_latin1 = raw_bytes_latin1.decode("gbk", errors="strict")
+                    fixed_name = candidate_latin1
+                except Exception:
+                    fixed_name = None
+
+            if not fixed_name or fixed_name == name:
+                continue
+
+            # 通过“中文占比”简单判断是否更像中文，避免误伤正常英文名
+            if not _looks_like_chinese(fixed_name) or _looks_like_chinese(name):
+                continue
+
+            old_path = output_dir / name
+            new_path = output_dir / fixed_name
+
+            # 确保父目录存在
+            new_path.parent.mkdir(parents=True, exist_ok=True)
+
+            try:
+                if old_path.exists():
+                    old_path.rename(new_path)
+            except Exception as e:
+                logger.warning(
+                    f"重命名解压文件失败: {old_path} -> {new_path}, 错误: {e}"
+                )
+
         return {
             "ok": True,
             "extracted_files": extracted_files,
