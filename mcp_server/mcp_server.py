@@ -30,6 +30,33 @@ from archive_tools.mcp_server import (
     extract_archive_tool as _extract_archive_tool,
 )
 
+# File Operations 导入
+from file_operations.mcp_server import (
+    mcp_file_create as _mcp_file_create,
+    mcp_file_read as _mcp_file_read,
+    mcp_file_update as _mcp_file_update,
+    mcp_file_delete as _mcp_file_delete,
+    mcp_file_copy as _mcp_file_copy,
+    mcp_file_move as _mcp_file_move,
+    mcp_file_rename as _mcp_file_rename,
+    mcp_file_get_info as _mcp_file_get_info,
+    mcp_file_create_batch as _mcp_file_create_batch,
+    mcp_file_read_batch as _mcp_file_read_batch,
+    mcp_file_update_batch as _mcp_file_update_batch,
+    mcp_file_delete_batch as _mcp_file_delete_batch,
+    mcp_file_list_directory as _mcp_file_list_directory,
+    mcp_file_create_directory as _mcp_file_create_directory,
+    mcp_file_search_files as _mcp_file_search_files,
+    mcp_file_get_info_batch as _mcp_file_get_info_batch,
+    mcp_file_search_content as _mcp_file_search_content,
+    mcp_file_replace_content as _mcp_file_replace_content,
+    mcp_file_compare as _mcp_file_compare,
+    mcp_file_analyze_project as _mcp_file_analyze_project,
+    mcp_file_generate_from_template as _mcp_file_generate_from_template,
+    mcp_file_git_status as _mcp_file_git_status,
+    mcp_file_backup as _mcp_file_backup,
+)
+
 # MarkItDown 导入（可选，如果未安装则跳过）
 try:
     from markitdown import MarkItDown
@@ -699,6 +726,221 @@ async def convert_to_markdown(
         }
     except Exception as e:
         raise ToolError(f"转换失败: {e}")
+
+
+# ========== File Operations 工具 ==========
+
+@app.tool()
+async def mcp_file_create(
+    file_path: Annotated[str, "要创建的文件路径"],
+    content: Annotated[str, "文件内容（默认空字符串）"] = "",
+    encoding: Annotated[str, "文件编码（默认 utf-8）"] = "utf-8",
+) -> dict:
+    """创建一个新文件。"""
+    return await _mcp_file_create(file_path, content, encoding)
+
+
+@app.tool()
+async def mcp_file_read(
+    file_path: Annotated[str, "要读取的文件路径"],
+    encoding: Annotated[Optional[str], "文件编码（默认自动检测）"] = None,
+) -> dict:
+    """读取一个文件的内容。"""
+    return await _mcp_file_read(file_path, encoding)
+
+
+@app.tool()
+async def mcp_file_update(
+    file_path: Annotated[str, "要更新的文件路径"],
+    content: Annotated[str, "新的文件内容"],
+    encoding: Annotated[str, "文件编码（默认 utf-8）"] = "utf-8",
+    append: Annotated[bool, "是否追加内容（默认 False，即覆盖）"] = False,
+) -> dict:
+    """更新一个文件的内容。"""
+    return await _mcp_file_update(file_path, content, encoding, append)
+
+
+@app.tool()
+async def mcp_file_delete(
+    file_path: Annotated[str, "要删除的文件或目录路径"],
+    recursive: Annotated[bool, "如果是目录，是否递归删除（默认 False）"] = False,
+) -> dict:
+    """删除一个文件或目录。"""
+    return await _mcp_file_delete(file_path, recursive)
+
+
+@app.tool()
+async def mcp_file_copy(
+    source_path: Annotated[str, "源文件或目录路径"],
+    destination_path: Annotated[str, "目标文件或目录路径"],
+    overwrite: Annotated[bool, "如果目标文件已存在是否覆盖（默认 False）"] = False,
+) -> dict:
+    """复制一个文件或目录。"""
+    return await _mcp_file_copy(source_path, destination_path, overwrite)
+
+
+@app.tool()
+async def mcp_file_move(
+    source_path: Annotated[str, "源文件或目录路径"],
+    destination_path: Annotated[str, "目标文件或目录路径"],
+    overwrite: Annotated[bool, "如果目标文件已存在是否覆盖（默认 False）"] = False,
+) -> dict:
+    """移动或重命名一个文件或目录。"""
+    return await _mcp_file_move(source_path, destination_path, overwrite)
+
+
+@app.tool()
+async def mcp_file_rename(
+    file_path: Annotated[str, "要重命名的文件或目录路径"],
+    new_name: Annotated[str, "新的名称"],
+) -> dict:
+    """重命名一个文件或目录。"""
+    return await _mcp_file_rename(file_path, new_name)
+
+
+@app.tool()
+async def mcp_file_get_info(
+    file_path: Annotated[str, "要获取信息的文件路径"],
+) -> dict:
+    """获取文件或目录的信息。"""
+    return await _mcp_file_get_info(file_path)
+
+
+@app.tool()
+async def mcp_file_create_batch(
+    files: Annotated[List[Dict[str, str]], "要创建的文件列表，每个元素是包含 file_path 和 content 的字典"],
+) -> dict:
+    """批量创建多个文件。"""
+    return await _mcp_file_create_batch(files)
+
+
+@app.tool()
+async def mcp_file_read_batch(
+    file_paths: Annotated[List[str], "要读取的文件路径列表"],
+    encoding: Annotated[Optional[str], "文件编码（默认自动检测）"] = None,
+) -> dict:
+    """批量读取多个文件的内容。"""
+    return await _mcp_file_read_batch(file_paths, encoding)
+
+
+@app.tool()
+async def mcp_file_update_batch(
+    files: Annotated[List[Dict[str, Any]], "要更新的文件列表，每个元素是包含 file_path、content 和 mode 的字典"],
+) -> dict:
+    """批量更新多个文件的内容。"""
+    return await _mcp_file_update_batch(files)
+
+
+@app.tool()
+async def mcp_file_delete_batch(
+    file_paths: Annotated[List[str], "要删除的文件或目录路径列表"],
+    recursive: Annotated[bool, "如果是目录，是否递归删除（默认 False）"] = False,
+) -> dict:
+    """批量删除多个文件或目录。"""
+    return await _mcp_file_delete_batch(file_paths, recursive)
+
+
+@app.tool()
+async def mcp_file_list_directory(
+    directory_path: Annotated[str, "要列出内容的目录路径"],
+    recursive: Annotated[bool, "是否递归列出子目录内容（默认 False）"] = False,
+    show_hidden: Annotated[bool, "是否显示隐藏文件（默认 False）"] = False,
+) -> dict:
+    """列出目录中的文件和子目录。"""
+    return await _mcp_file_list_directory(directory_path, recursive, show_hidden)
+
+
+@app.tool()
+async def mcp_file_create_directory(
+    directory_path: Annotated[str, "要创建的目录路径"],
+    recursive: Annotated[bool, "是否递归创建父目录（默认 False）"] = False,
+) -> dict:
+    """创建一个新目录。"""
+    return await _mcp_file_create_directory(directory_path, recursive)
+
+
+@app.tool()
+async def mcp_file_search_files(
+    directory_path: Annotated[str, "要搜索的目录路径"],
+    pattern: Annotated[str, "文件名称匹配模式"],
+    recursive: Annotated[bool, "是否递归搜索子目录（默认 False）"] = False,
+) -> dict:
+    """在目录中搜索匹配指定模式的文件。"""
+    return await _mcp_file_search_files(directory_path, pattern, recursive)
+
+
+@app.tool()
+async def mcp_file_get_info_batch(
+    file_paths: Annotated[List[str], "要获取信息的文件路径列表"],
+) -> dict:
+    """批量获取多个文件或目录的信息。"""
+    return await _mcp_file_get_info_batch(file_paths)
+
+
+@app.tool()
+async def mcp_file_search_content(
+    directory_path: Annotated[str, "要搜索的目录路径"],
+    search_text: Annotated[str, "要搜索的文本"],
+    pattern: Annotated[Optional[str], "文件名模式（只搜索匹配的文件）"] = None,
+    regex: Annotated[bool, "是否使用正则表达式（默认 False）"] = False,
+) -> dict:
+    """搜索文件内容。"""
+    return await _mcp_file_search_content(directory_path, search_text, pattern, regex)
+
+
+@app.tool()
+async def mcp_file_replace_content(
+    file_path: Annotated[str, "文件路径"],
+    old_text: Annotated[str, "要替换的文本"],
+    new_text: Annotated[str, "替换后的文本"],
+    regex: Annotated[bool, "是否使用正则表达式（默认 False）"] = False,
+) -> dict:
+    """替换文件内容。"""
+    return await _mcp_file_replace_content(file_path, old_text, new_text, regex)
+
+
+@app.tool()
+async def mcp_file_compare(
+    file1_path: Annotated[str, "第一个文件路径"],
+    file2_path: Annotated[str, "第二个文件路径"],
+) -> dict:
+    """比较两个文件。"""
+    return await _mcp_file_compare(file1_path, file2_path)
+
+
+@app.tool()
+async def mcp_file_analyze_project(
+    root_dir: Annotated[str, "项目根目录"],
+) -> dict:
+    """分析项目结构。"""
+    return await _mcp_file_analyze_project(root_dir)
+
+
+@app.tool()
+async def mcp_file_generate_from_template(
+    template_path: Annotated[str, "模板文件路径"],
+    output_path: Annotated[str, "输出文件路径"],
+    variables: Annotated[Optional[Dict[str, Any]], "模板变量字典"] = None,
+) -> dict:
+    """从模板生成文件。"""
+    return await _mcp_file_generate_from_template(template_path, output_path, variables)
+
+
+@app.tool()
+async def mcp_file_git_status(
+    file_path: Annotated[str, "文件路径"],
+) -> dict:
+    """获取文件的 Git 状态。"""
+    return await _mcp_file_git_status(file_path)
+
+
+@app.tool()
+async def mcp_file_backup(
+    file_path: Annotated[str, "要备份的文件路径"],
+    backup_dir: Annotated[Optional[str], "备份目录（默认在原文件同目录）"] = None,
+) -> dict:
+    """备份文件。"""
+    return await _mcp_file_backup(file_path, backup_dir)
 
 
 def main() -> None:
