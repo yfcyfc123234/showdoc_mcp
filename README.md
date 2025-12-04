@@ -57,6 +57,12 @@ pip install -e .
 - `list_cursor_models_tool` - 列出推荐模型
 - `list_cursor_repositories_tool` - 列出 GitHub 仓库
 
+#### MarkItDown 工具
+
+- `convert_to_markdown` - 将各种资源（URL、文件等）转换为 Markdown 格式
+  - 支持 http://、https://、file://、data:// 等 URI 格式
+  - 可以转换网页、PDF、Word 文档、图片等多种格式
+
 ### 5. 使用示例
 
 #### 首次使用 Cursor Agents API
@@ -131,6 +137,8 @@ showdoc/
 
 - ShowDoc 相关工具（抓取、代码生成等）
 - Cursor Agents 相关工具（代理管理、会话查询等）
+- MarkItDown 工具（将各种资源转换为 Markdown）
+- 压缩解压工具（ZIP、7Z、RAR）
 - 持续扩展中...
 
 ## 开发使用

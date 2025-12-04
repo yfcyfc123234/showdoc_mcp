@@ -52,3 +52,8 @@ py7zr>=0.21.0
 # Linux: 需要安装 unrar 包（如 apt-get install unrar）
 rarfile>=4.1
 
+# ========== MarkItDown 依赖 ==========
+# 将各种资源（URL、文件等）转换为 Markdown
+# 支持 http://、https://、file://、data:// 等 URI 格式
+markitdown>=0.0.1a24
+

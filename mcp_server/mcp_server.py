@@ -1,4 +1,4 @@
-from __future__ import annotations
+# from __future__ import annotations  # 临时注释，FastMCP 需要实际的类型对象
 
 import asyncio
 import io
@@ -29,6 +29,13 @@ from archive_tools.mcp_server import (
     compress_files_tool as _compress_files_tool,
     extract_archive_tool as _extract_archive_tool,
 )
+
+# MarkItDown 导入（可选，如果未安装则跳过）
+try:
+    from markitdown import MarkItDown
+    MARKITDOWN_AVAILABLE = True
+except ImportError:
+    MARKITDOWN_AVAILABLE = False
 
 # 配置日志到 UTF-8 stderr，避免干扰 MCP 协议的 stdout
 utf8_stderr = io.TextIOWrapper(
@@ -629,6 +636,69 @@ async def extract_archive_tool(
         password=password,
         delete_archive=delete_archive,
     )
+
+
+# ========== MarkItDown 工具 ==========
+
+@app.tool()
+async def convert_to_markdown(
+    uri: Annotated[str, "要转换的资源 URI，支持 http://、https://、file://、data:// 等格式"],
+) -> dict:
+    """
+    将各种资源（URL、文件等）转换为 Markdown 格式。
+    
+    支持以下 URI 格式：
+    - http:// 或 https://：网页 URL
+    - file://：本地文件路径（如 file:///path/to/file.pdf）
+    - data://：Base64 编码的数据 URI
+    
+    必需参数：
+    - uri: 要转换的资源 URI
+    
+    返回：
+    - markdown: 转换后的 Markdown 内容
+    - metadata: 资源的元数据信息（如果可用）
+    """
+    if not MARKITDOWN_AVAILABLE:
+        raise ToolError(
+            "markitdown 未安装。请运行: pip install 'markitdown[all]'"
+        )
+    
+    if not uri:
+        raise ToolError("uri 参数是必需的")
+    
+    try:
+        # 使用 asyncio.to_thread 在后台线程中执行同步操作
+        def _convert():
+            md = MarkItDown()
+            result = md.convert(uri)
+            return result
+        
+        result = await asyncio.to_thread(_convert)
+        
+        # 处理返回结果（markitdown 可能返回字符串或对象）
+        if isinstance(result, str):
+            markdown_text = result
+            metadata = None
+        elif hasattr(result, 'text'):
+            markdown_text = result.text
+            metadata = {
+                "title": getattr(result, 'title', None),
+                "author": getattr(result, 'author', None),
+                "date": getattr(result, 'date', None),
+            }
+        else:
+            # 如果返回的是其他类型，尝试转换为字符串
+            markdown_text = str(result)
+            metadata = None
+        
+        return {
+            "ok": True,
+            "markdown": markdown_text,
+            "metadata": metadata,
+        }
+    except Exception as e:
+        raise ToolError(f"转换失败: {e}")
 
 
 def main() -> None:
